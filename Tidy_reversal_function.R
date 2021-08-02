@@ -11,7 +11,8 @@ reversal_data <- reversal_data %>% row_to_names(4) %>% group_by(subject) %>% fil
 #drop rows that aren't currently useful
 reversal_data <- reversal_data %>% select(!c(practiceInstructionIndex,blockName, 
                                              ITI, numTrialEachBlock, instructionIndex, 
-                                             isThisTrialPractice, trialCounter, blockNumber, build, experimentName)) 
+                                             isThisTrialPractice, trialCounter, blockNumber, build, experimentName,
+                                             picture.Left.currentvalue, picture.Right.currentvalue)) 
 
 ##long pipe for tidying data
 distinct <- reversal_data %>% 
@@ -50,7 +51,8 @@ for (i in subjects) {
    j <- ggplot(distinct %>% dplyr::filter(subject == i), aes(x=trial_number, y=trial_response, colour = isResponseCorrect)) + 
      geom_point() + 
      geom_vline(aes(xintercept = reversal_trial, color = "Reversal Point")) + 
-     scale_color_manual(labels = c("Correct", "Incorrect", "Reversal Point"), values = (wes_palette("Cavalcanti1")[c(5,4,2)])) + xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     scale_color_manual(labels = c("Correct", "Incorrect", "Reversal Point"), values = (wes_palette("Cavalcanti1")[c(5,4,2)])) + 
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~block_number)
 plot_list[[i]] <- j
 
@@ -67,13 +69,16 @@ dev.off()
 #what percentage did people get correct by block, not including missed responses?
 remove_noresponse <- distinct %>%
   filter(!trial_response == "noresponse") %>% group_by(subject, block_number) %>%
-  group_by(subject, block_number, task_phase) %>% mutate(percent_correct_block = max(as.numeric(numbercorrect))/(max(as.numeric(numberoftimesleft)) + max(as.numeric(numberoftimesright)))) 
+  group_by(subject, block_number, task_phase) %>% 
+  mutate(phase_trialnum = ifelse(task_phase == "Reversal", trial_number - reversalnumber, trial_number )) %>%
+  mutate(percent_correct_block = max(as.numeric(numbercorrect))/(max(phase_trialnum))) 
 
-obj <- remove_noresponse %>% summarise(max = max(percent_correct_block, na.rm=TRUE))
+obj <- remove_noresponse %>% summarise(max = max(percent_correct_block, na.rm=TRUE), trial_number = max(phase_trialnum))
 
 #how long did it take people to get to >10 correct? ## collect this automatically next round!!
 
-remove_noresponse <- remove_noresponse %>% mutate(reached_criterion = ifelse(as.numeric(numbercorrect) > 10, trial_number, NA))
+remove_noresponse <- remove_noresponse %>% mutate(reached_criterion = ifelse(as.numeric(numbercorrect) > 10, trial_number, NA)) %>% 
+  mutate(reached_criterion = ifelse(task_phase == "Reversal", trial_number - reversalnumber, reached_criterion ))
 
 remove_noresponse %>% dplyr::filter(!reached_criterion == 0) %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE))
 
