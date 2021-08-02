@@ -58,7 +58,7 @@ test <- distinct %>% group_by(subject, block_number, ResponseCorrect) %>% arrang
 
 example <- distinct %>% group_by(block_number) %>% select(subject, block_number, trial_number, ResponseCorrect) %>% slice(2:4)
 
-obj <- distinct %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE), percent_correct_phase = max(percent_correct_phase), trial_number = max(phase_trialnum))
+obj <- distinct %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE), percent_correct_phase = max(percent_correct_phase), trial_number = max(phase_trialnum)) %>% mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
 
 
 plot_subjects <- list()
@@ -78,9 +78,9 @@ for (i in subjects) {
      facet_wrap(~block_number)
   scatter[[i]] <- scatter
 
-hist <- obj %>% filter(subject == i) %>% group_by(block_number) %>% ggplot(aes(y=percent_correct_phase, x = task_phase, fill = task_phase)) +
+hist <- obj %>% filter(subject == i) %>% group_by(block_number) %>% ggplot(aes(y=percent_correct_phase, x = task_phase, fill = above_threshold)) +
   geom_bar(stat = "identity") + 
-  scale_fill_manual(values = (wes_palette("Cavalcanti1")[c(4,2)])) + 
+  scale_fill_manual(values = (wes_palette("Cavalcanti1")[c(4,5)])) + 
   ggtitle(i) + ylab("Percentage Correct") + xlab("") +  facet_grid(~ block_number)
  hist[[i]] <- hist
 
