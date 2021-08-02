@@ -64,23 +64,25 @@ plot_list
 dev.off()
 
 
-###variables for statistical summaries
+###transformations for statistical summaries
 
 #what percentage did people get correct by block, not including missed responses?
-remove_noresponse <- distinct %>%
-  filter(!trial_response == "noresponse") %>% group_by(subject, block_number) %>%
+distinct <- distinct %>%
+  group_by(subject, block_number) %>%
   group_by(subject, block_number, task_phase) %>% 
   mutate(phase_trialnum = ifelse(task_phase == "Reversal", trial_number - reversalnumber, trial_number )) %>%
+  mutate(phase_numbercorrect = ifelse(task_phase == "Reversal", numbercorrect, numbercorrect))
+  mutate(phase_numbercorrect = ifelse(task_phase == "Reversal", numbercorrect, numbercorrect))
   mutate(percent_correct_block = max(as.numeric(numbercorrect))/(max(phase_trialnum))) 
 
-obj <- remove_noresponse %>% summarise(max = max(percent_correct_block, na.rm=TRUE), trial_number = max(phase_trialnum))
+obj <- distinct %>% summarise(max = max(percent_correct_block, na.rm=TRUE), trial_number = max(phase_trialnum))
 
 #how long did it take people to get to >10 correct? ## collect this automatically next round!!
 
-remove_noresponse <- remove_noresponse %>% mutate(reached_criterion = ifelse(as.numeric(numbercorrect) > 10, trial_number, NA)) %>% 
+distinct <- distinct %>% mutate(reached_criterion = ifelse(as.numeric(numbercorrect) > 10, trial_number, NA)) %>% 
   mutate(reached_criterion = ifelse(task_phase == "Reversal", trial_number - reversalnumber, reached_criterion ))
 
-remove_noresponse %>% dplyr::filter(!reached_criterion == 0) %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE))
+distinct %>% dplyr::filter(!reached_criterion == 0) %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE))
 
 #how many trials did they need to perform better than chance?
 
@@ -88,5 +90,5 @@ distinct %>%
   group_by(subject, block_number) %>% 
   summarise(max = max(percent_correct_block, na.rm=TRUE))
 
-remove_noresponse %>% summarise(max = max(percent_correct_block, na.rm=TRUE))
+distinct %>% summarise(max = max(percent_correct_block, na.rm=TRUE))
 
