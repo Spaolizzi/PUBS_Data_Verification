@@ -1,6 +1,6 @@
 
 ##Load Packages
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, gridExtra)
 
 ##First things first: load data. Eventually ask nate for find.unproccessed code
 setwd("~/github_repos/PUBS_Data_Verification/")
@@ -48,21 +48,30 @@ distinct <- distinct %>% group_by(subject, block_number) %>%
   group_by(subject, block_number, task_phase) %>%
   mutate(reached_criterion = ifelse(as.numeric(numbercorrect_phase) > 10, phase_trialnum, NA)) %>%
   mutate(percent_correct_phase = as.numeric(numbercorrect_phase)/max(as.numeric(phase_trialnum)))  %>% 
-  mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>%
-  
+  mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>% 
+   ungroup() %>%
+  group_by(
+    subject, 
+    task_phase, 
+    block_number, 
+    grp = lag(cumsum(isResponseCorrect == -1), default = 0)
+  ) %>% 
+  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == -1, 0, cumsum(isResponseCorrect))) %>%
+  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
+  ungroup() %>% 
+  select(-grp)
 
-test <- distinct %>% group_by(subject, block_number, ResponseCorrect) %>% arrange(subject, block_number, total_trialnum) %>% mutate(ConsecutiveCorrect = cumsum(ResponseCorrect))
-  
-
-
-
-example <- distinct %>% group_by(block_number) %>% select(subject, block_number, trial_number, ResponseCorrect) %>% slice(2:4)
-
-obj <- distinct %>% summarise(reached_criterion = min(reached_criterion, na.rm=TRUE), percent_correct_phase = max(percent_correct_phase), trial_number = max(phase_trialnum)) %>% mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
+obj <- distinct %>% group_by(subject, block_number, task_phase) %>% 
+  summarise(reached_criterion = min(reached_criterion, na.rm=TRUE), 
+                              percent_correct_phase = max(percent_correct_phase),
+                              ConsecutiveCorrect = max(ConsecutiveCorrect),
+                              trial_number = max(phase_trialnum)) %>% 
+  mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
 
 
 plot_subjects <- list()
 
+cowplot_list <- list()
 
 ##create plot for responsexreversal? Overall look at the task
 # Plot --------------------------------------------------------------------
@@ -81,15 +90,25 @@ for (i in subjects) {
 hist <- obj %>% filter(subject == i) %>% group_by(block_number) %>% ggplot(aes(y=percent_correct_phase, x = task_phase, fill = above_threshold)) +
   geom_bar(stat = "identity") + 
   scale_fill_manual(values = (wes_palette("Cavalcanti1")[c(4,5)])) + 
-  ggtitle(i) + ylab("Percentage Correct") + xlab("") +  facet_grid(~ block_number)
+ ylab("Percentage Correct") + xlab("") +  facet_grid(~ block_number)
  hist[[i]] <- hist
-
  plot_subjects[[i]] <- list(scatter, hist) 
+ 
+ cowplot <- cowplot::plot_grid(scatter, hist, nrow = 2)
+ cowplot_list[[i]] <- cowplot
 }
 
-pdf("~/github_repos/PUBS_Data_Verification/Reversal_Pilot.pdf", width = 12, height = 5)
-plot_subjects
+pdf("~/github_repos/PUBS_Data_Verification/Reversal_Pilot.pdf", width = 12, height = 12)
+grid.newpage()
+grid.table(obj[1:30,])
+tg <- tableGrob(obj[1:30, 1:8])
+for (i in c(10, 18, 20, 21)) tg$grobs[[i]] <- editGrob(tg$grobs[[i]], gp=gpar(col="red"))
+grid.newpage()
+cowplot_list
+grid.newpage()
 dev.off()
+
+obj %>% dplyr::filter(above_threshold == "Below")
 
 # split by block ----------------------------------------------------------
 
@@ -126,8 +145,9 @@ reversal %>% arrange(subject, block_number, trial_number) %>%
 
  
  
- pdf("~/github_repos/PUBS_Data_Verification/Reversal_Pilot_histograms.pdf", width = 12, height = 5)
- plot_list_hist
+ pdf("~/github_repos/PUBS_Data_Verification/Reversal_Pilot_histograms.pdf", width = 8, height = 12)
+ plot_list_
+ grid.table(distinct)
  dev.off()
  
 
@@ -145,25 +165,5 @@ reversal %>% arrange(subject, block_number, trial_number) %>%
          dplyr::mutate(isResponseCorrect = ifelse(isResponseCorrect == 1, 1, 0)) %>%
            dplyr::filter(!trial_response == "noresponse")
          
-         
-         
-         
-         ##Trying to calculate consecutivecorrect
-         reversal_test <- distinct %>% arrange(subject, block_number, trial_number) %>%
-           group_by(subject, block_number, isResponseCorrect) %>% 
-           dplyr::mutate(isResponseCorrect = ifelse(isResponseCorrect == 1, 1, 0)) %>%
-           dplyr::filter(!trial_response == "noresponse")
-         
-         #consecutive correct
-         for (i in subjects){
-           for (r in 1:nrow(distinct)) {
-             if (distinct$isResponseCorrect == 1) {
-               distinct$consecutivechoice[r] = reversal_test$consecutivechoice[r] + 1
-             } else if (reversal_test$isResponseCorrect == -1)  {
-               reversal_test$consecutivechoice[r] = 0
-             }
-           }
-         }
-        
          
          
