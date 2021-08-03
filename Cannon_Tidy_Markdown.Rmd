@@ -1,0 +1,86 @@
+---
+title: "Cannonball Data Cleaning and Diagnostics"
+author: "Sophie Paolizzi"
+date: "8/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+##Load Packages and source scripts
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable)
+setwd("~/github_repos/PUBS_Data_Verification/")
+#source("Tidy_functions_PUBS.R")
+
+#load data
+cannon_data <- data.table::fread("pubs_pilot_cannon_task_forpilot_6.30.21_raw_21_07_29-31.csv", fill = TRUE)
+
+```
+
+This markdown generates diagnostic checks for the PUBS data.
+
+This chunk tidies the data from the reversal task. I'd like to have this spit out errors too, when possible. 
+```{r cars}
+
+names(cannon_data)[22] <- "trial_earnings"
+names(cannon_data)[17] <- "surprise_dup"
+
+subjects <- unique(cannon_data$subject)
+
+#drop rows that aren't useful - will delete from main script
+cannon_data <- cannon_data %>% select(!c(build, experimentName, date, time)) %>% group_by(subject) %>% group_by(subject) %>% filter(n() > 3) ##useful for deleting number of observations less than X
+
+##long pipe for tidying data, not by block
+distinct <- cannon_data %>% 
+  group_by(subject, block, trialnum) %>% ##group by subject and block to prevent weirdness
+  mutate_all(function(x) as.numeric(as.character(x))) %>% ##change needed things to numeric
+  mutate(cannonballs_tot = as.numeric(cannonballs_caught + cannonballs_missed)) %>%
+  arrange(subject, block, trialnum, cannonballs_tot) %>% ## arrange in order based on grouping
+  mutate(trial_latency = ifelse(rightleft == "left", trial.presentation_left.latency, trial.presentation_right.latency)) %>% ## combine latencies to create overall trial latency
+  mutate(trial_response = ifelse(rightleft == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
+  mutate(trial_response = ifelse(trial_response == 45, "left", trial_response)) %>% #change name of response variable
+  mutate(trial_response = ifelse(trial_response == 50, "right", trial_response)) %>% #change name of response variable
+  mutate(trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
+  mutate(total_trialnum = ifelse(block_number > 1, trial_number + (80*(block_number-1)), trial_number)) %>% #add running counter for total trials
+  mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
+  select(!c(trial.presentation_left.latency, trial.presentation_right.latency, trial.presentation_left.response, trial.presentation_right.response)) %>% # delete extra columns for conciseness
+  filter(!total_trialnum > 240 && !block_number > 3) %>% filter(!trial_number == 0) %>% #removing things we don't need
+  group_by(subject, block_number) %>% mutate(percent_correct_block = as.numeric(numbercorrect)/80) %>% ##percentage correct across block
+  mutate(task_phase = ifelse(trial_number <= reversalnumber, "Acquisition", "Reversal")) #note which block they're in
+  
+
+### This pipe readies the data for the first scatterplot, giving a first look at of performance
+distinct <- distinct %>% group_by(subject, block_number) %>% #grouping again
+  mutate(numbercorrect = as.numeric(numbercorrect)) %>% # get things as.numeric
+  mutate(phase_trialnum = ifelse(task_phase == "Reversal", trial_number - reversalnumber, trial_number)) %>%
+  mutate(numbercorrect_acq = ifelse(as.numeric(trial_number) == as.numeric(reversalnumber), numbercorrect, 0)) %>%
+  mutate(numbercorrect_reversal = ifelse(task_phase == "Reversal", numbercorrect - max(numbercorrect_acq), 0)) %>%
+  mutate(numbercorrect_phase = ifelse(task_phase == "Reversal", numbercorrect_reversal, numbercorrect)) %>% 
+  mutate(ResponseCorrect = as.numeric(isResponseCorrect)) %>%
+  select(!c(numbercorrect_acq, numbercorrect_reversal)) %>% #phase_numbercorrect
+  group_by(subject, block_number, task_phase) %>%
+  mutate(reached_criterion = ifelse(as.numeric(numbercorrect_phase) > 10, phase_trialnum, NA)) %>%
+  mutate(percent_correct_phase = as.numeric(numbercorrect_phase)/max(as.numeric(phase_trialnum)))  %>% 
+  mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>% 
+   ungroup() %>%
+  group_by(
+    subject, 
+    task_phase, 
+    block_number, 
+    grp = lag(cumsum(isResponseCorrect == -1), default = 0)
+  ) %>% 
+  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == -1, 0, cumsum(isResponseCorrect))) %>%
+  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
+  ungroup() %>% 
+  select(-grp)
+
+
+
+
+obj <- distinct %>% group_by(subject, block_number, task_phase) %>% 
+  summarise(reached_criterion = min(reached_criterion, na.rm=TRUE), 
+                              percent_correct_phase = max(percent_correct_phase),
+                              ConsecutiveCorrect = max(ConsecutiveCorrect),
+                              trial_number = max(phase_trialnum)) %>% 
+  mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
+```
