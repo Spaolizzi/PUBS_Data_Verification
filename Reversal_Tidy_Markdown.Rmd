@@ -17,7 +17,7 @@ This final dataframe resulting from this cleaning was used to re-program data st
 ```{r setup, message=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, emmeans)
 setwd("~/github_repos/PUBS_Data_Verification/")
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
@@ -26,7 +26,7 @@ setwd("~/github_repos/PUBS_Data_Verification/")
 
 *Clean and transform Data...*
 
-```{r, message=FALSE}
+```{r, include=FALSE}
 reversal_data <- data.table::fread("pubs_pilot_reversal_task_forpilot_7.4.21_raw_21_07_29.csv", fill = TRUE) %>% row_to_names(4) %>% group_by(subject) %>% filter(n() >= 200)
 #drop rows that aren't useful - will delete from main script
 reversal_data <- reversal_data %>% select(!c(practiceInstructionIndex,blockName,ITI, numTrialEachBlock, instructionIndex, isThisTrialPractice, trialCounter, blockNumber, build, experimentName,picture.Left.currentvalue, picture.Right.currentvalue))
@@ -36,7 +36,7 @@ distinct <- reversal_data %>%
   group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
   mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
   arrange(subject, block_number, trial_number) %>% slice(which.max(centsearned)) %>% ## arrange in order based on grouping
-  mutate(trial_latency = ifelse(rightleft == "left", trial.presentation_left.latency, trial.presentation_right.latency)) %>% ## combine latencies to create overall trial latency
+  mutate(trial_latency = ifelse(rightleft == "left", as.numeric(trial.presentation_left.latency), as.numeric(trial.presentation_right.latency))) %>% ## combine latencies to create overall trial latency
   mutate(trial_response = ifelse(rightleft == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
   mutate(trial_response = ifelse(trial_response == 45, "left", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 50, "right", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
   mutate(total_trialnum = ifelse(block_number > 1, trial_number + (80*(block_number-1)), trial_number)) %>% #add running counter for total trials
@@ -49,7 +49,7 @@ distinct <- reversal_data %>%
 
 *Only retain distinct trials...*
 
-```{r, message=FALSE}
+```{r, include=FALSE}
 
 distinct <- distinct %>% group_by(subject, block_number, task_phase) %>% #grouping again
   mutate(numbercorrect = as.numeric(numbercorrect)) %>% # get things as.numeric
@@ -66,10 +66,11 @@ distinct <- distinct %>% group_by(subject, block_number, task_phase) %>% #groupi
   ungroup() %>% select(-grp)
 
 obj <- distinct %>% group_by(subject, block_number, task_phase) %>%
-  summarise(reached_criterion = min(reached_criterion, na.rm=TRUE),
-                              percent_correct_phase = max(percent_correct_phase),
-                              Consecutive_Correct = max(ConsecutiveCorrect),
-                              NumberofTrials_Phase = max(phase_trialnum)) %>%
+  summarise(avg_latency = mean(as.numeric(trial_latency)),
+            reached_criterion = min(reached_criterion, na.rm=TRUE),
+            percent_correct_phase = max(percent_correct_phase),
+            Consecutive_Correct = max(ConsecutiveCorrect),
+            NumberofTrials_Phase = max(phase_trialnum)) %>%
   mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
 
 stats <- colMeans(obj[sapply(obj, is.numeric)])
@@ -77,27 +78,39 @@ stats <- colMeans(obj[sapply(obj, is.numeric)])
 obj <- rbind(obj, stats)
 obj$subject[31] <- "Means"
 
-save(distinct, obj, file = "Reversal_Task_Cleaned.Rdata")
+#save(distinct, obj, file = "Reversal_Task_Cleaned.Rdata")
 ```
 
 ### Pilot Results
 
-**Table 1**. Performance statistics were calculated by block (1,2, or 3) and phase (acquisition or reversal). All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maxiumum number of consecutive "correct" choices were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices. 
+**Table 1**. Performance statistics were calculated by block (1,2, or 3) and phase (acquisition or reversal). All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maxiumum number of consecutive "correct" choices participants made were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices.
 
 
 ```{r,echo=FALSE}
 subjects <- unique(distinct$subject); cowplot_list <- list(); plot_subjects <- list()
-
 colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
-tab <- obj %>% flextable() %>% bg(j = 1:8, bg=colormatrix)
+tab <- obj %>% flextable() %>% bg(j = 1:9, bg=colormatrix)
 
 sink("/dev/null")
 tab
 sink(); 
 ```
+```{r}
+##N.B. For actual analysis, hang here and create drop_irregular function that prints summaries and has options to get rid of:
+## bad subjects (those with < avg accuracy overall)
+##bad blocks (blocks with <50% accuracy)
+##bad trials (latency > 3000 - this should also encompass noresponse)
+```
 
 
-**Figures 1a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be work adding a check on whether participants are responding (or the percentage of trials they responded on).
+**Figure 1**. Rough look at reaction time. The distribution looks about correct: For eventual analysis, We will like drop trials with no response. 
+```{r}
+hist(distinct$trial_latency)
+
+```
+
+
+**Figures 2a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be work adding a check on whether participants are responding (or the percentage of trials they responded on). Similarly, it looks as though longer RTs are correlated with worse performance. It may be worth adding an explicit instruction for participants to respond as quickly and accurately as possible. This should also speed up the task considerably. 
 
 
 ```{r, message = 'hide'}
@@ -127,13 +140,18 @@ cowplot_list
 sink(); 
 ```
 
-#### Results Summary 
-On average, participants made the "correct" choice approximately 80% of the time, and made at least 10 correct choices by trial 17. Both of these outcomes suggest the block length can be shortened as suggested by MNH to as little as 50 trials.
+#### Pilot Findings Summary 
+On average, participants made the "correct" choice approximately 80% of the time, and made at least 10 correct choices by trial 17. Both of these outcomes suggest the block length can be shortened as suggested by MNH to as little as 50 trials. Regarding data verification and visualization, it will be important to look at RT data more explicitly in the larger sample. Based on the pilot, it looks like it could be handled pretty easily with a log or invesrse transform. 
 
+### Task Reccomendations - For Michael Discussion
+1. Block length to 50 trials per MNH's suggestion. Given subjects learned the contingencies in an average of 16 trials, this seems about correct. For time's sake, I'm thinking of erring on the side of 4 blocks of 50 trials. 
+2. Explicitly instruct participants to click as quickly and accurately as possible, and shorten response windows such that the entire task will take between 8 and 10 minutes. See "Task Timing" for more details.  https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=390744519 
+3. Combine stimulus selection and feedback phases, to save time?
+4. Collect 10-15 subjects and check for final timing.
 
-### Task Reccomendations
+### Data Check Plans - For Michael Discussion 8/26
 
-1. Task length will be shortened to 50 trials per MNH's suggestion. 
-2. Timing has been shortened such that the entire task will take between 8 and 10 minutes. See "Task Timing" for more details.  https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=390744519 
-
-## Data Check Recocmendations
+1. Translate dplyr operations into usable functions and try to duplicate as little as possible across tasks.  
+2. drop_irregular function
+3. Check RTs and provide info on possible transforms
+4. 
