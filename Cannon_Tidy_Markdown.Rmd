@@ -21,7 +21,7 @@ cannon_data_late_version <- data.table::fread("pubs_pilot_cannon_task_forpilot_U
 This markdown generates diagnostic checks for the PUBS data.
 
 This chunk tidies the data from the cannonball task. First, I'm doing the old version. I'd like to have this spit out errors too, when possible. 
-```{r}
+```{r, message=FALSE}
 
 early_subjects <- unique(cannon_data_early_version$subject)
 
@@ -54,7 +54,7 @@ distinct_early <- distinct_early %>% left_join(obj_early, by = c("subject", "blo
 
 
 This chunk tidies the data from the cannonball task. Now, I'm doing the new version. I'd like to have this spit out errors too, when possible. 
-```{r cars}
+```{r message=FALSE}
 
 names(cannon_data_late_version)[22] <- "trial_earnings"
 names(cannon_data_late_version)[17] <- "surprise_dup"
@@ -83,7 +83,7 @@ distinct_late <- distinct_late %>% left_join(obj_late, by = c("subject", "block"
   
 ##pipe for mutating needed variables
   
-  distinct_late <- distinct_late %>% mutate(PE = angrand - placementAngle) %>% mutate(abs_PE = ifelse(abs(PE)<= 180, abs(PE), abs(abs(PE)-180))) %>% mutate(changepoint = ifelse(StaySwitch == 1 , trialnum, NA)) %>%
+  distinct_late <- distinct_late %>% mutate(PE = angrand - placementAngle) %>% mutate(abs_PE = ifelse(abs(PE) <= 180, abs(PE), abs(abs(PE)-180))) %>% mutate(r = angrand) %>% mutate(changepoint = ifelse(StaySwitch == 1 , trialnum, NA)) %>%
     group_by(subject, block, totalearnings) %>% mutate(task_phase = ifelse(block == 1, "oddball", "changepoint"))#create predidction error
 ```
   
@@ -97,48 +97,25 @@ distinct_late <- distinct_late %>% mutate(subject = as.numeric(subject), block =
 
 distinct <- rbind(distinct_early[,InBoth], distinct_late[,InBoth])
 
-distinct <- distinct %>% filter(!subject == 483419443) %>% mutate( )
+distinct <- distinct %>% filter(!subject == 483419443) %>% mutate(catch_miss = as.factor(ifelse(outcomeindex == 6, "miss", "hit")))
 
 rm(distinct_early, distinct_late, cannon_data_early_version, cannon_data_late_version,InBoth, early_subjects, late_subjects)
 ```
-  
-  
-  
   
   
 ```{r}
 subjects <- as.character(unique(distinct$subject)); plot_subjects <- list()
 for (i in subjects) {
   d <- distinct %>% dplyr::filter(subject == i && task_phase == "oddball")
-  oddball <- ggplot(d, aes(x=trialnum, y=abs_PE)) + 
+  oddball <- ggplot(d, aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
      geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + 
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,4)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~block_code)
 
- change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE)) + 
+ change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
      geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + 
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~block_code)
-  plot_subjects[[i]] <- list(oddball, change_point) 
- 
-}
-
-
-
-subjects <- as.character(unique(distinct$subject)); plot_subjects <- list()
-for (i in subjects) {
-  d <- distinct %>% dplyr::filter(subject == i && task_phase == "oddball")
-  oddball <- ggplot(d, aes(x=trialnum, y=abs_PE)) + 
-     geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + 
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~block_code)
-
- change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE)) + 
-     geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + 
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5)]))  + 
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~block_code)
   plot_subjects[[i]] <- list(oddball, change_point) 
