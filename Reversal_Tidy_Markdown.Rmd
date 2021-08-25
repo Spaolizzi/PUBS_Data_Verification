@@ -19,6 +19,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ##Load Packages and source scripts
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, emmeans)
 setwd("~/github_repos/PUBS_Data_Verification/")
+reversal_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
 

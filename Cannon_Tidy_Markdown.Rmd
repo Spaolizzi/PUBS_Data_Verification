@@ -147,7 +147,7 @@ Hist_outliers; Mean_RT; Hist_cleaned; Mean_cleaned
 
 
 ```{r}
-plot_subject <- list(); plot_subjects_angmu <- list()
+plot_subjects <- list(); plot_subjects_angmu <- list()
 
 for (i in subjects) {
   d <- distinct %>% dplyr::filter(subject == i && task_phase == "oddball")
@@ -178,7 +178,7 @@ for (i in subjects) {
  change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
      geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5)]))  + 
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(paste(i), "Distance From Mean" ) +
      facet_wrap(~block_code)
   plot_subjects_angmu[[i]] <- list(oddball, change_point) 
  
@@ -191,8 +191,6 @@ for (i in subjects) {
 #tab
 plot_subjects
 ```
- 
- 
  
 #### Pilot Findings Summary 
 
