@@ -1,0 +1,214 @@
+---
+title: "Cannonball Data Cleaning and Diagnostics"
+author: "Sophie Paolizzi"
+date: "8/3/2021"
+output: html_document
+---
+### Adaptive Learning Task (ADLT)
+
+In the cannon task, participants are instructed to place a shield at any point around a circle (Nassar et al., 2019). This shield covers only a portion of the 360-degree circle. The goal of the task is to infer where a cannonball might hit along the circle based on the information gathered from previous cannonball strikes and place the shield at those locations. Before each block of the task, the generative structure of the block is fully explained to the participants via written instructions and practice trials of the task. During the practice trials, participants can see where the cannon is aimed and use that information to place their shield. The cannon could theoretically hit anywhere within a 10-degree range from the center of the cannon’s muzzle. After this practice phase, participants complete the primary experiment where the cannon is removed and they must infer the cannon’s aim. The pattern of the cannon’s aim can either (1) change slightly within a specified range of the circle, with “oddball” cannonball shots striking about 14 percent of the time anywhere along the circle, or (2) remain stationary on most trials, and re-position to a random angle on approximately 14 percent of trials and remain stationary at this new angle. Participants receive explicit instructions regarding the nature of each of these blocks following the instructional phase, meaning they know whether the upcoming block will be from an oddball or change-point distribution. Participants complete 240 experimental trials in each condition, divided into 60-trial blocks, for a total of 480 trials.
+	On each trial, participants adjust the position of their shield and lock in their decision. After their choice has been made, there is a 500ms delay before the location of the cannonball is revealed for 500ms. This provides an explicit representation of how far away the center of the shield fell from the cannonball’s strike, providing visual feedback about their PE from the cannonball’s actual location (Figure 2a, ii). After participants are shown how far off they were, the outcome of the task is revealed (Figure 2a, iii). After another brief delay (1000ms), the size of the participant’s shield is revealed alongside the cannonball, showing whether they successfully blocked the projectile. While the shield is always centered on the participant’s chosen location, it varies in size such that participants are never totally certain they will block the cannonball. Thus, minimizing the PE in the feedback phase is the optimal strategy for performing well in the task. At the end of a block, participants are provided feedback in terms of how many cannonballs they caught as a percentage of the total cannonballs.
+
+### Pilot Data
+#### TL;DR for Data Cleaning
+This final dataframe resulting from this cleaning was used to re-vamp data structure from the task. Because the cleaning code will be updated, the current cleaning code does not need to be reviewed unless you suspect anaomalies in the resulting dataframe. For any questions related to the definition of task variables, please refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. Skip to heading **Pilot Results** for information on pilot data. 
+
+It should also be noted that data for this pilot came from two, slightly different versions of the ADLT. The first version failed to record trial latency. Thus, latencies were only examined for a subset of participants. 
+
+ *Load Pilot Data...*
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+##Load Packages and source scripts
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable)
+setwd("~/github_repos/PUBS_Data_Verification/")
+#source("Tidy_functions_PUBS.R")
+
+#load data
+#cannon_data_early_version <- data.table::fread("pubs_pilot_cannon_task_forpilot_6.30.21_raw_21_08_04.csv", fill = TRUE)
+#cannon_data_late_version <- data.table::fread("pubs_pilot_cannon_task_forpilot_Updated.csv", fill = TRUE)
+load("Cannonball_Pilot_Cleaned_Data.Rdata")
+
+```
+
+*Clean and Transform Pilot Data...*
+```{r, include=FALSE}
+# 
+# early_subjects <- unique(cannon_data_early_version$subject)
+# 
+# #drop rows that aren't useful - will delete from main script
+# cannon_data_early_version <- cannon_data_early_version %>% select(!c(build, experimentName, date, time)) %>% group_by(subject) %>% group_by(subject) %>%
+#   filter(n() > 3) %>% filter(!practiceblock > 0) %>% filter(!subject == "Sophie") %>% mutate(subject = ifelse(subject =="olivia", "300", subject)) ##useful for deleting number of observations less than X
+# 
+# ##pipe for organizing data into correct block/trial structure
+# distinct_early <- cannon_data_early_version %>% 
+#   group_by(subject, block) %>% ##group by subject and block to prevent weirdness
+#   mutate_all(function(x) as.character(x)) %>% mutate_all(function(x) as.numeric(x)) %>% ##change needed things to numeric
+#   mutate(cannonballs_tot = as.numeric(cannonballs_caught + cannonballs_missed)) %>% ##make cannonball_total row to slice based off of
+#   group_by(subject, block, totalearnings, trialnum) %>% arrange(subject, block, totalearnings, trialnum) %>% ##group and arrange 
+#   slice(which.max(cannonballs_tot)) ## make the slice
+# 
+# 
+# obj_early <- distinct_early %>% group_by(subject, block, totalearnings) %>% summarise(obscount = n(), ) %>% 
+#   arrange(subject,totalearnings) %>% mutate(block_code = row_number()) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) ##summarize counts and get block numbers
+# 
+# distinct_early <- distinct_early %>% left_join(obj_early, by = c("subject", "block", "totalearnings")) %>% filter(obscount > 2) #filter out totalearnings row
+#   
+# ##pipe for mutating needed variables
+#   
+#   distinct_early <- distinct_early %>% mutate(PE = ang - r) %>% mutate(abs_PE = ifelse(abs(PE)<= 180, abs(PE), abs(abs(PE)-180))) %>% mutate(changepoint = ifelse(StaySwitch == 1 , trialnum, NA)) %>%
+#     group_by(subject, block, totalearnings) %>% mutate(task_phase = ifelse(block == 1, "oddball", "changepoint")) #create predidction error
+#   
+#   
+```
+
+
+
+*Clean and Transform Pilot Data...*
+```{r include=FALSE}
+# 
+# names(cannon_data_late_version)[22] <- "trial_earnings"
+# names(cannon_data_late_version)[17] <- "surprise_dup"
+# 
+# late_subjects <- unique(cannon_data_late_version$subject)
+# 
+# #drop rows that aren't useful - will delete from main script
+# cannon_data_late_version <- cannon_data_late_version %>% group_by(subject) %>% group_by(subject) %>%
+#   filter(n() > 50) %>% filter(!practiceblock > 0) %>% separate(picture.shield.currentitem, c("Number","Extra"), sep = "-r") %>%
+#   separate(Number, c("Arc","shield_size"), sep = "c") %>% 
+#   select(!c(build, experimentName, date, time, Arc, Extra)) %>% mutate(subject = ifelse(subject =="olivia", "300", subject))  ##useful for deleting number of observations less than X
+# 
+# ##pipe for organizing data into correct block/trial structure
+# distinct_late <- cannon_data_late_version %>% 
+#   group_by(subject, block) %>% ##group by subject and block to prevent weirdness
+#   mutate_all(function(x) as.character(x)) %>% mutate_all(function(x) as.numeric(x)) %>% ##change needed things to numeric
+#   mutate(cannonballs_tot = as.numeric(cannonballs_caught + cannonballs_missed)) %>% ##make cannonball_total row to slice based off of
+#   group_by(subject, block, totalearnings, trialnum) %>% arrange(subject, block, totalearnings, trialnum) %>% ##group and arrange 
+#   slice(which.max(cannonballs_tot)) ## make the slice
+# 
+# 
+# obj_late <- distinct_late %>% group_by(subject, block, totalearnings) %>% summarise(obscount = n(), ) %>% 
+#   arrange(subject,totalearnings) %>% mutate(block_code = row_number()) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) ##summarize counts and get block numbers
+# 
+# distinct_late <- distinct_late %>% left_join(obj_late, by = c("subject", "block", "totalearnings")) %>% filter(obscount > 2) #filter out totalearnings row
+#   
+# ##pipe for mutating needed variables
+#   
+#   distinct_late <- distinct_late %>% mutate(PE = angrand - placementAngle) %>% mutate(abs_PE = ifelse(abs(PE) <= 180, abs(PE), abs(abs(PE)-180))) %>% mutate(r = angrand) %>% mutate(changepoint = ifelse(StaySwitch == 1 , trialnum, NA)) %>%
+#     group_by(subject, block, totalearnings) %>% mutate(task_phase = ifelse(block == 1, "oddball", "changepoint"))#create predidction error
+```
+  
+*Compare early and late data collection...*
+```{r, include = FALSE}
+# InBoth <- intersect(colnames(distinct_early), colnames(distinct_late))
+# 
+# distinct_early <- distinct_early %>% mutate(subject = as.character(subject)) %>% mutate(subject = as.numeric(subject), block = as.numeric(as.character(block))) 
+# 
+# distinct_late <- distinct_late %>% mutate(subject = as.numeric(subject), block = as.numeric(block))
+# 
+# distinct <- rbind(distinct_early[,InBoth], distinct_late[,InBoth])
+# 
+# distinct <- distinct %>% filter(!subject == 483419443) %>% mutate(catch_miss_factor = as.factor(ifelse(outcomeindex == 6, "miss", "hit"))) %>% mutate()
+# 
+# rm(distinct_early, distinct_late, cannon_data_early_version, cannon_data_late_version,InBoth, early_subjects, late_subjects)
+# 
+obj <- distinct %>% group_by(subject, task_phase, block_code, totalearnings) %>% 
+  summarise(obscount = n(), avg_PE = mean(abs_PE),
+            dist_mean = mean(abs(angmu)-abs(r)), ##I think thias transform could be done better
+            percent_caught = max(cannonballs_caught/max(trialnum))) %>% 
+  arrange(subject,totalearnings) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) %>% mutate(Avg_overall_PE = mean(avg_PE)) ##summarize counts and get block numbers
+save(obj, distinct, distinct_late, file = "Cannonball_Pilot_Cleaned_Data.Rdata")
+```
+  
+
+### Pilot Results
+**Table 1**. *Task Performance.* It appears people really struggled with learning the contingencies in this task. 
+```{r}
+subjects <- as.character(unique(distinct$subject)); plot_subjects <- list()
+colormatrix <- ifelse(obj$avg_PE >= 30, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+tab <- obj %>% flextable() %>% bg(j = 1:8, bg=colormatrix)
+
+sink("/dev/null")
+tab
+sink(); 
+```
+
+
+**Figure 1**.*Reaction time data*. Below is a histogram of all reaction time data. Because response times were not limited and participants were not instructed to click quickly and accurately, it looks as though some RTs were incredibly long, upward of five minutes in some cases. When trimming off the more extreme responses ( I chose 10 seconds to be liberal), it does look like most people made their responses in an average of 900 ms. Changing the input to a mouse and adding instructions to click quickly and accurately should drastically reduce time spent in this task. Because this is a different input method than the eventual study, these data will not be further analyzed.
+
+```{r, message = 'hide'}
+Hist_outliers <- ggplot(distinct_late, aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
+Mean_RT <- distinct_late %>% ungroup () %>% summarise(mean = mean(trial.placeshield_mouse.latency))
+Hist_cleaned <- ggplot(distinct_late %>% filter(!trial.placeshield_mouse.latency > 10000), aes(x=trial.placeshield_mouse.latency)) + geom_histogram() ##liberal to relflect difficulties clicking with mouse
+Mean_cleaned <- distinct_late %>% ungroup () %>% filter(!trial.placeshield_mouse.latency > 5000) %>% summarise(mean = mean(trial.placeshield_mouse.latency))
+
+Hist_outliers; Mean_RT; Hist_cleaned; Mean_cleaned
+```
+
+
+
+```{r}
+plot_subjects <- list(); plot_subjects_angmu <- list()
+
+for (i in subjects) {
+  d <- distinct %>% dplyr::filter(subject == i && task_phase == "oddball")
+  oddball <- ggplot(d, aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
+     geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,4)])) +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~block_code)
+
+ change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
+     geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5)]))  + 
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~block_code)
+  plot_subjects[[i]] <- list(oddball, change_point) 
+ 
+}
+
+
+for (i in subjects) {
+  d <- distinct %>% dplyr::filter(subject == i && task_phase == "oddball")
+  oddball <- ggplot(d, aes(x=trialnum, y=abs(angmu)-abs(r), color = catch_miss)) + 
+     geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,4)])) +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~block_code)
+
+ change_point <- ggplot(distinct %>% dplyr::filter(subject == i && task_phase == "changepoint"), aes(x=trialnum, y=abs_PE, color = catch_miss)) + 
+     geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5)]))  + 
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(paste(i), "Distance From Mean" ) +
+     facet_wrap(~block_code)
+  plot_subjects_angmu[[i]] <- list(oddball, change_point) 
+ 
+}
+
+
+#colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")[c(4)], "white") ##potentially save these as bad_blocks vector
+#tab <- obj %>% flextable() %>% bg(j = 1:8, bg=colormatrix)
+
+#tab
+plot_subjects
+```
+ 
+#### Pilot Findings Summary 
+
+### Task Reccomendations - For Michael Discussion
+1. Already implemented: Clarify instructions Re: various suggestions from Piloters. 
+  a. Instructions have been simplified from "oddball" and "changepoint" blocks to "orange" and "blue" blocks - cannon lights up with various colors. 
+  b. Edits to wording to make instructions flow better.
+  c. Removing unhelpful/confusing parts of instructions (instructing participants to miss on purpose)
+2. Complaints about the task being difficult to figure out - kind of the point?
+  a. Talk about percent cought/ideal success rate?
+3. Not a consistent pattern across tasks (i.e., people always getting better?)
+  a. individual PEs vs. distmean?
+  b. not sure I calculated dist_mean in a way that makes sense
+4. Collect 10-15 subjects and check for final timing.
+
+### Data Check Plans - For Michael Discussion 8/26
+
+1. Translate dplyr operations into usable functions and try to duplicate as little as possible across tasks.  
+2. drop_irregular function
+3. Check RTs and provide info on possible transforms
+4. 
