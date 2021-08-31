@@ -1,9 +1,9 @@
 tidy_cannon <- function(cannon_data) {
-  cannon_data <- cannon_data_8.16 %>% 
-    select(!c(build, experimentName, list.previouspos.currentvalue, list.Condition.currentvalue, ang)) %>% 
+  cannon_data <- cannon_data %>% 
+    select(!c(build, experimentName, list.Condition.currentvalue)) %>% 
     group_by(subject, time) %>% ## be by subject
     dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
-    mutate(picture.shield.currentitem, shield_size = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
+    mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
     mutate_if(is.integer, as.numeric) %>% mutate(placementAngle, ifelse(outcomeindex == 1, NA, placementAngle)) %>%
     mutate(cond = as.factor(cond))
   return(cannon_data)
@@ -19,14 +19,24 @@ create_vars <- function(cannon_data, set_vars){
   if("Abs_PE" %in% set_vars) {
     cannon_data$Abs_PE <- NA
     for(r in 1:nrow(cannon_data)){
-      tmp <- discrep(cannon_data$outcome[r], cannon_data$placementAngle[r])
-      cannon_data$Abs_PE[r] <- tmp}
+      if(cannon_data$placementAngle[r] == "NA"){
+        cannon_data$Abs_PE[r] <- NA
+      } else if(cannon_data$outcome[r] == "NA"){
+        cannon_data$Abs_PE[r] <- NA
+      } else {
+        cannon_data$Abs_PE[r] <- discrep(cannon_data$outcome[r], cannon_data$placementAngle[r])
+      }
+    }
   }
   if("PE_angmu" %in% set_vars){
     cannon_data$PE_angmu <- NA
     for(r in 1:nrow(cannon_data)){
+      if(is.na(cannon_data$placementAngle[r])){
+        tmp <- NA
+      } else {
       tmp <- discrep(cannon_data$angmu[r], cannon_data$placementAngle[r])
       cannon_data$PE_angmu[r] <- tmp}
+    }
   }
   if ("catch_miss" %in% set_vars) {
     cannon_data$catch_miss <- cannon_data$outcomeindex 
@@ -55,23 +65,25 @@ create_vars <- function(cannon_data, set_vars){
   for(r in 1:nrow(cannon_data)){
     cannon_data$cond_num[r] <- ifelse(cannon_data$cond[r] == "ODDBALL", 1, 2)
   }
- 
-  
-  return(cannon_data) ##Michael says risky
+  return(cannon_data)
 }
 
 
 check_irreg <- function(cannon_data){
   cannon_data$Irreg <- NA
   for(r in 1:nrow(cannon_data)){
-    if (is.na(cannon_data$Abs_PE[r])) {
+    if(is.na(cannon_data$Abs_PE[r])) {
       if(cannon_data$outcomeindex[r] != 1){
         cannon_data$Irreg[r] <- "CHECK_NA"
       } else {
         cannon_data$Irreg[r] <- NA
       }
+    } else if(is.na(cannon_data$hitmiss[r])){
+      cannon_data$Irreg[r] <- NA
+    } else if(is.na(cannon_data$shield_size[r])) {
+      cannon_data$Irreg[r] <- NA
     } else {
-      if (cannon_data$Abs_PE[r] <= ((cannon_data$shield_size[r])/2) && cannon_data$hitmiss[r] == 0){
+        if (cannon_data$Abs_PE[r] <= (cannon_data$shield_size[r]/2) && cannon_data$hitmiss[r] == 0){
         cannon_data$Irreg[r] <- "CHECK_MISS"
       } else if (cannon_data$Abs_PE[r] >= 30 & cannon_data$hitmiss[r] == 1){
         cannon_data$Irreg[r] <- "CHECK_HIT"

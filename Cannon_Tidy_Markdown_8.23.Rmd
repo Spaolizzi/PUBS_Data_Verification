@@ -51,7 +51,8 @@ setwd("~/github_repos/PUBS_Data_Verification/")
 source("Tidy_functions_PUBS.R")
 
 #load data
-cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
+#cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
+cannon_data_8.28 <- data.table::fread("~/Downloads/michael.hallquist_pubs_pilot_cannon_task_finaldraft_8.27.21_raw-4.csv", fill = TRUE)
 #load("Cannonball_Pilot_Cleaned_Data.Rdata")
 
 ```
@@ -59,8 +60,8 @@ cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20
 ### 1. Clean Pilot Data...
 The majority of the work being done here is occuring behind the scenes in tidy_functions
 ```{r, include=FALSE}
-cannon_data <- tidy_cannon(cannon_data_8.16) ## transforms raw data into workable dataframe
-cannon_data <- cannon_data %>% mutate(subject, subject = ifelse(time == "21:26:09", 1, 2)) ##specific to this sweird dataset, hopefully not neccessary later
+cannon_data <- tidy_cannon(cannon_data_8.28) ## transforms raw data into workable dataframe
+#cannon_data <- cannon_data %>% mutate(subject, subject = ifelse(time == "21:26:09", 1, 2)) ##specific to this sweird dataset, hopefully not neccessary later
 ```
 
 ### 2. Transform Pilot Data...
