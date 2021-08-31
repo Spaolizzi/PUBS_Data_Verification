@@ -4,14 +4,26 @@ tidy_cannon <- function(cannon_data) {
     group_by(subject, time) %>% ## be by subject
     dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
     mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
-    mutate_if(is.integer, as.numeric) %>% mutate(placementAngle, ifelse(outcomeindex == 1, NA, placementAngle)) %>%
+    mutate_if(is.integer, as.numeric) %>%
     mutate(cond = as.factor(cond))
+  
+  #numeric columns 
+  cols.num <- c("placementAngle","prev_placementAngle", "shield_size", "subject")
+  cannon_data[cols.num] <- sapply(cannon_data[cols.num],as.numeric)
+  sapply(cannon_data, class)
   return(cannon_data)
 }
 
 discrep <- function(angmu, r) {
-  phi <- abs(angmu - r) %% 360
-  if (phi > 180) { phi <- 360 - phi }
+  if(is.na(angmu)){
+    phi <- NA
+  } else if (is.na(angmu)){
+    phi <- NA
+  } else {
+    phi <- abs(angmu - r) %% 360
+    if (phi > 180) { phi <- 360 - phi }
+    
+  }
   return(phi)
 }
 
@@ -19,9 +31,9 @@ create_vars <- function(cannon_data, set_vars){
   if("Abs_PE" %in% set_vars) {
     cannon_data$Abs_PE <- NA
     for(r in 1:nrow(cannon_data)){
-      if(cannon_data$placementAngle[r] == "NA"){
+      if(is.na(cannon_data$placementAngle[r])){
         cannon_data$Abs_PE[r] <- NA
-      } else if(cannon_data$outcome[r] == "NA"){
+      } else if(is.na(cannon_data$outcome[r])){
         cannon_data$Abs_PE[r] <- NA
       } else {
         cannon_data$Abs_PE[r] <- discrep(cannon_data$outcome[r], cannon_data$placementAngle[r])
