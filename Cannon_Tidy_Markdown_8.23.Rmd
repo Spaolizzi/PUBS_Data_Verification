@@ -98,10 +98,10 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
             dist_mean = mean(PE_angmu,na.rm = TRUE),
             percent_caught = max(cannonballs_caught/max(trialnum)),
             percent_noresp = (sum(outcomeindex == 1)/max(trialnum))) %>%
-  arrange(subject,totalearnings) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) %>% mutate(Avg_overall_PE = mean(avg_PE)) %>% ungroup()
+  arrange(subject,totalearnings) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) %>% mutate(Avg_overall_PE = mean(avg_PE, na.rm = TRUE)) %>% ungroup()
 save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
-colormatrix <- ifelse(obj$percent_noresp >= .5, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+colormatrix <- ifelse(obj$percent_noresp >= .2, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
 tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
 
 sink("/dev/null")
@@ -177,7 +177,6 @@ c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
 plot_subjects; plot_subjects
 
 ```
- 
  
 #### Example Data Summary 
 
