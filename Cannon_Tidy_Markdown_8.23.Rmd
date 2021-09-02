@@ -45,8 +45,9 @@ It should also be noted that data for this pilot came from two, slightly differe
 ### 1. Load Pilot Data...
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE)
+options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly)
 setwd("~/github_repos/PUBS_Data_Verification/")
 source("Tidy_functions_PUBS.R")
 
@@ -57,11 +58,18 @@ cannon_data_8.28 <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/PUBS_
 
 ```
 
+####Setup - Conditionals
+```{r}
+plot_print <- "all" # could be "random" 
+
+```
+
+
+
 ### 1. Clean Pilot Data...
 The majority of the work being done here is occuring behind the scenes in tidy_functions
-```{r, include=FALSE}
+```{r clean data, include=FALSE}
 cannon_data <- tidy_cannon(cannon_data_8.28) ## transforms raw data into workable dataframe
-#cannon_data <- cannon_data %>% mutate(subject, subject = ifelse(time == "21:26:09", 1, 2)) ##specific to this sweird dataset, hopefully not neccessary later
 ```
 
 ### 2. Transform Pilot Data...
@@ -74,7 +82,7 @@ The variables created by the set_vars vector are:
 
 **Table 1**. *High-Level Task Performance.* This check returns block-level info about subject's performance. Participants are flagged if they did not respond to more than half of trials. 
 
-```{r, include=FALSE}
+```{r create variables, include=FALSE}
 set_vars <- c("Abs_PE", "PE_angmu", "catch_miss", "changepoint" ) ##name variables needed for analysis, add as they become apparent 
 cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
 #create summary
@@ -84,15 +92,17 @@ cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
 It's probably worth writing this into a function as well. I should probably do this before I implement high-level checks. Ideas for things I might need to check are:
 **Miscodes**. Misses that are actually hits, Hits that are actually misses, etc. 
 **Odd numbers of trials** Participants bailing early on the task, getting stuck somewhere, etc. 
-```{r}
+```{r check irrgular}
 cannon_data <- check_irreg(cannon_data) #check for any mistaken hits
 irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg )
 irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg )
+irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg)
 
 ```
 
-### 4. Create Table of Summary statistics
-```{r}
+### 4. Create Table of Summary statistics {.tabset}
+```{r summary table}
+
 obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>% 
   summarise(obscount = n(), avg_PE = mean(Abs_PE, na.rm = TRUE),
             dist_mean = mean(PE_angmu,na.rm = TRUE),
@@ -102,7 +112,10 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
 save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
 colormatrix <- ifelse(obj$percent_noresp >= .2, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
-tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
+
+
+  tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
+
 
 sink("/dev/null")
 tab
@@ -114,71 +127,122 @@ sink();
 
 **Figure 1**. Below is a histogram of all reaction time data.
 
-```{r, message = 'hide'}
+```{r RT overview, message = 'hide'}
 Hist_outliers <- ggplot(cannon_data, aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
-Mean_RT <- cannon_data %>% ungroup () %>% summarise(mean = mean(trial.placeshield_mouse.latency))
-Hist_cleaned <- ggplot(cannon_data %>% filter(!trial.placeshield_mouse.latency == 2500 && !catch_miss == "noresp"), aes(x=trial.placeshield_mouse.latency)) + geom_histogram() ##liberal to reflect difficulties clicking with mouse
 Mean_cleaned <- cannon_data %>% ungroup () %>% filter(!trial.placeshield_mouse.latency == 2500) %>% summarise(mean = mean(trial.placeshield_mouse.latency))
-
-Hist_outliers; Mean_RT; Hist_cleaned; Mean_cleaned
+Hist_outliers; Mean_cleaned
 ```
 
-### 6. Graphical Respresentations
-
-```{r, include == FALSE}
-subjects <- as.character(unique(cannon_data$subject)); plot_subjects <- list()
-```
+### 6. Graphical Respresentations by subject
 
 
 ```{r}
-plot_subject <- list(); plot_subjects_angmu <- list()
+library(ggplot2)
+subjects <- as.character(unique(cannon_data$subject))
+# template <- c(
+#     "### OddballPE {{nm}}\n",
+#     "```{r, echo = FALSE}\n",
+#     "ggplot(cannon_data[cannon_data$subject == '{{nm}}', ], aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = 'Oddball'))+ scale_color_manual(values = (wes_palette('Cavalcanti1')[c(2,5,1,4)])) +
+#      xlab('Trial Number') + ylab('Response Type') + ggtitle({{nm}}) +
+#      facet_wrap(~blocknum)\n",
+#     "```\n",
+#     "\n"
+#   )
+# 
+# plots <- lapply(
+#   unique(subjects), 
+#   function(nm) knitr::knit_expand(text = template)
+# )
+```
+
+
+```{r runall, include=FALSE}
+subjects <- as.character(unique(cannon_data$subject))
+```
+
+```{r}
+oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list();
 
 for (i in subjects) {
   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
-  oddball <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) + 
+  oddball_PE <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) +
      geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
-c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
- change_point <- ggplot(c,aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  + 
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~blocknum)
-  plot_subjects[[i]] <- list(oddball, change_point) 
- 
-}
-
-
-for (i in subjects) {
-  o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
-  oddball <- ggplot(o, aes(x=trialnum, y=PE_angmu, color = catch_miss)) + 
+  oddball_PE[[i]] <- oddball_PE
+   
+  oddball_DM <- ggplot(o, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
      geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
-c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
- change_point <- ggplot(c, 
-                        aes(x=trialnum, y=PE_angmu, color = catch_miss)) + 
+   oddball_DM[[i]] <- oddball_DM
+  
+  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
+  change_point_PE <- ggplot(c,aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~blocknum)
+  changepoint_PE[[i]] <- changepoint_PE
+  
+ change_point_DM <- ggplot(c, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
    geom_point() +
-   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,1,5)]))  + 
+   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,1,5)]))  +
       xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
  
-  plot_subjects_angmu[[i]] <- list(oddball, change_point) 
- 
+  changepoint_DM[[i]] <- changepoint_DM
+  
+  
 }
 
+# for (i in subjects) {
+#   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
+#  
+# c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
 
-#colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")[c(4)], "white") ##potentially save these as bad_blocks vector
-#tab <- obj %>% flextable() %>% bg(j = 1:8, bg=colormatrix)
-
-#tab
-plot_subjects; plot_subjects
+# 
+# }
 
 ```
- 
-#### Example Data Summary 
 
-### Task Reccomendations - For Michael Discussion
+
+
+## Absolute PE in Oddball Block {.tabset}
+```{r}
+
+template <- c(
+    "### Oddball_PE {{nm}}\n",
+    "```{r, echo = FALSE}\n",
+    "oddball_PE[[{{nm}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(oddball_PE), function(nm) {knitr::knit_expand(text = template)})
+
+```
+
+`r knitr::knit(text = unlist(plots))`
+
+
+## Absolute PE in Changepoint Block {.tabset}
+```{r}
+
+template <- c(
+    "### Changepoint_PE {{nm}}\n",
+    "```{r, echo = FALSE}\n",
+    "changepoint_PE[[{{nm}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(changepoint_PE), function(nm) {knitr::knit_expand(text = template)})
+
+```
+
+
+
+`r knitr::knit(text = unlist(plots))`
 

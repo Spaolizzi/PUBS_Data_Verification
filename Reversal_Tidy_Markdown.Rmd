@@ -19,7 +19,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ##Load Packages and source scripts
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, emmeans)
 setwd("~/github_repos/PUBS_Data_Verification/")
-reversal_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
+reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
 
@@ -28,17 +28,17 @@ reversal_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.
 *Clean and transform Data...*
 
 ```{r, include=FALSE}
-reversal_data <- data.table::fread("pubs_pilot_reversal_task_forpilot_7.4.21_raw_21_07_29.csv", fill = TRUE) %>% row_to_names(4) %>% group_by(subject) %>% filter(n() >= 200)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject) %>% filter(n() >= 200)
 #drop rows that aren't useful - will delete from main script
-reversal_data <- reversal_data %>% select(!c(practiceInstructionIndex,blockName,ITI, numTrialEachBlock, instructionIndex, isThisTrialPractice, trialCounter, blockNumber, build, experimentName,picture.Left.currentvalue, picture.Right.currentvalue))
+#reversal_data <- reversal_data %>% select(!c(practiceInstructionIndex,blockName,ITI, numTrialEachBlock, instructionIndex, isThisTrialPractice, trialCounter, blockNumber, build, experimentName,picture.Left.currentvalue, picture.Right.currentvalue))
 
 ##long pipe for tidying data, not by block
 distinct <- reversal_data %>%
   group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
   mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
   arrange(subject, block_number, trial_number) %>% slice(which.max(centsearned)) %>% ## arrange in order based on grouping
-  mutate(trial_latency = ifelse(rightleft == "left", as.numeric(trial.presentation_left.latency), as.numeric(trial.presentation_right.latency))) %>% ## combine latencies to create overall trial latency
-  mutate(trial_response = ifelse(rightleft == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
+  mutate(trial_latency = ifelse(rightleftcorrect == "left", as.numeric(trial.presentation_left.latency), as.numeric(trial.presentation_right.latency))) %>% ## combine latencies to create overall trial latency
+  mutate(trial_response = ifelse(rightleftcorrect == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
   mutate(trial_response = ifelse(trial_response == 45, "left", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 50, "right", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
   mutate(total_trialnum = ifelse(block_number > 1, trial_number + (80*(block_number-1)), trial_number)) %>% #add running counter for total trials
   mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
@@ -84,7 +84,7 @@ obj$subject[31] <- "Means"
 
 ### Pilot Results
 
-**Table 1**. Performance statistics were calculated by block (1,2, or 3) and phase (acquisition or reversal). All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maxiumum number of consecutive "correct" choices participants made were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices.
+**Table 1**. Performance statistics were calculated by block (1,2, or 3) and phase (acquisition or reversal). All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maximum number of consecutive "correct" choices participants made were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices.
 
 
 ```{r,echo=FALSE}
