@@ -14,6 +14,24 @@ tidy_cannon <- function(cannon_data) {
   return(cannon_data)
 }
 
+
+
+tidy_reversal <- function(reversal_data) {
+  reversal_data <- reversal_datam %>% 
+    select(!c(build, experimentName, list.Condition.currentvalue)) %>% 
+    group_by(subject, time) %>% ## be by subject
+    dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
+    mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
+    mutate_if(is.integer, as.numeric) %>%
+    mutate(cond = as.factor(cond))
+  
+  #numeric columns 
+  cols.num <- c("placementAngle","prev_placementAngle", "shield_size", "subject")
+  cannon_data[cols.num] <- sapply(cannon_data[cols.num],as.numeric)
+  sapply(cannon_data, class)
+  return(cannon_data)
+}
+
 discrep <- function(angmu, r) {
   if(is.na(angmu)){
     phi <- NA

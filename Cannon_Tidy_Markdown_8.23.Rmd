@@ -112,6 +112,8 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
 save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
 colormatrix <- ifelse(obj$percent_noresp >= .2, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
+
 
 
   tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
@@ -135,75 +137,44 @@ Hist_outliers; Mean_cleaned
 
 ### 6. Graphical Respresentations by subject
 
-
 ```{r}
-library(ggplot2)
+oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list()
 subjects <- as.character(unique(cannon_data$subject))
-# template <- c(
-#     "### OddballPE {{nm}}\n",
-#     "```{r, echo = FALSE}\n",
-#     "ggplot(cannon_data[cannon_data$subject == '{{nm}}', ], aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = 'Oddball'))+ scale_color_manual(values = (wes_palette('Cavalcanti1')[c(2,5,1,4)])) +
-#      xlab('Trial Number') + ylab('Response Type') + ggtitle({{nm}}) +
-#      facet_wrap(~blocknum)\n",
-#     "```\n",
-#     "\n"
-#   )
-# 
-# plots <- lapply(
-#   unique(subjects), 
-#   function(nm) knitr::knit_expand(text = template)
-# )
-```
-
-
-```{r runall, include=FALSE}
-subjects <- as.character(unique(cannon_data$subject))
-```
-
-```{r}
-oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list();
-
+subjects_list <- list(as.character(unique(cannon_data$subject)))
 for (i in subjects) {
   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
-  oddball_PE <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) +
+  oddballPE <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) +
      geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
-  oddball_PE[[i]] <- oddball_PE
+  oddball_PE[[i]] <- oddballPE
    
-  oddball_DM <- ggplot(o, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
+  oddballDM <- ggplot(o, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
      geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
-   oddball_DM[[i]] <- oddball_DM
+   oddball_DM[[i]] <- oddballDM
   
   c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
-  change_point_PE <- ggplot(c,aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
+  changepointPE <- ggplot(c,aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
-  changepoint_PE[[i]] <- changepoint_PE
+  changepoint_PE[[i]] <- changepointPE
   
- change_point_DM <- ggplot(c, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
+ changepointDM <- ggplot(c, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
    geom_point() +
    geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,1,5)]))  +
       xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
  
-  changepoint_DM[[i]] <- changepoint_DM
+  changepoint_DM[[i]] <- changepointDM
   
   
 }
-
-# for (i in subjects) {
-#   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
-#  
-# c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
-
-# 
-# }
+#changepoint_PE; changepoint_DM; oddball_DM; oddball_PE
 
 ```
 
@@ -213,7 +184,7 @@ for (i in subjects) {
 ```{r}
 
 template <- c(
-    "### Oddball_PE {{nm}}\n",
+    "### OddballPE {{nm}}\n",
     "```{r, echo = FALSE}\n",
     "oddball_PE[[{{nm}}]] \n",
     "```\n",
@@ -231,14 +202,52 @@ plots <- lapply(1:length(oddball_PE), function(nm) {knitr::knit_expand(text = te
 ```{r}
 
 template <- c(
-    "### Changepoint_PE {{nm}}\n",
+    "### Changepoint_PE {{x}}\n",
     "```{r, echo = FALSE}\n",
-    "changepoint_PE[[{{nm}}]] \n",
+    "changepoint_PE[[{{x}}]] \n",
     "```\n",
     "\n"
   )
 
-plots <- lapply(1:length(changepoint_PE), function(nm) {knitr::knit_expand(text = template)})
+plots <- lapply(1:length(changepoint_PE), function(x) {knitr::knit_expand(text = template)})
+
+```
+
+
+
+`r knitr::knit(text = unlist(plots))`
+
+
+## Distance from Mean in Changepoint Block {.tabset}
+```{r}
+
+template <- c(
+    "### Changepoint_DM {{y}}\n",
+    "```{r, echo = FALSE}\n",
+    "changepoint_DM[[{{y}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(changepoint_DM), function(y) {knitr::knit_expand(text = template)})
+
+```
+
+`r knitr::knit(text = unlist(plots))`
+
+
+## Distance from Mean in Oddball Block {.tabset}
+```{r}
+
+template <- c(
+    "### Oddball_DM {{z}}\n",
+    "```{r, echo = FALSE}\n",
+    "oddball_DM[[{{z}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(oddball_DM), function(z) {knitr::knit_expand(text = template)})
 
 ```
 

@@ -36,7 +36,7 @@ reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_m
 distinct <- reversal_data %>%
   group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
   mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
-  arrange(subject, block_number, trial_number) %>% slice(which.max(centsearned)) %>% ## arrange in order based on grouping
+  arrange(subject, block_number, trial_number) %>% ## arrange in order based on grouping
   mutate(trial_latency = ifelse(rightleftcorrect == "left", as.numeric(trial.presentation_left.latency), as.numeric(trial.presentation_right.latency))) %>% ## combine latencies to create overall trial latency
   mutate(trial_response = ifelse(rightleftcorrect == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
   mutate(trial_response = ifelse(trial_response == 45, "left", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 50, "right", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
