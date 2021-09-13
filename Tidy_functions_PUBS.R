@@ -17,19 +17,16 @@ tidy_cannon <- function(cannon_data) {
 
 
 tidy_reversal <- function(reversal_data) {
-  reversal_data <- reversal_datam %>% 
-    select(!c(build, experimentName, list.Condition.currentvalue)) %>% 
+  reversal_data <- reversal_data %>% 
+    select(!c(build, experimentName, totalcorrect)) %>% 
     group_by(subject, time) %>% ## be by subject
-    dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
-    mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
+    filter(!stimulusitem1 == "Press SPACE to continue")
+  reversal_data <- as.data.table(reversal_data)
+  reversal_data <- reversal_data[ , stimulusitem := shift(stimulusitem1, 1)]
+  reversal_data <- reversal_data %>% 
     mutate_if(is.integer, as.numeric) %>%
-    mutate(cond = as.factor(cond))
-  
-  #numeric columns 
-  cols.num <- c("placementAngle","prev_placementAngle", "shield_size", "subject")
-  cannon_data[cols.num] <- sapply(cannon_data[cols.num],as.numeric)
-  sapply(cannon_data, class)
-  return(cannon_data)
+    filter(!stimulusitem == "+")
+  return(reversal_data)
 }
 
 discrep <- function(angmu, r) {

@@ -17,23 +17,26 @@ This final dataframe resulting from this cleaning was used to re-program data st
 ```{r setup, message=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, emmeans)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, emmeans, data.table)
 setwd("~/github_repos/PUBS_Data_Verification/")
-reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
+source("Tidy_functions_PUBS.R")
+#reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject) %>% filter(n() >= 200)
 
 ```
 
 *Clean and transform Data...*
+```{r}
+reversal <- tidy_reversal(reversal_data)
+```
+
 
 ```{r, include=FALSE}
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject) %>% filter(n() >= 200)
-#drop rows that aren't useful - will delete from main script
-#reversal_data <- reversal_data %>% select(!c(practiceInstructionIndex,blockName,ITI, numTrialEachBlock, instructionIndex, isThisTrialPractice, trialCounter, blockNumber, build, experimentName,picture.Left.currentvalue, picture.Right.currentvalue))
 
 ##long pipe for tidying data, not by block
-distinct <- reversal_data %>%
+distinct <- reversal %>%
   group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
   mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
   arrange(subject, block_number, trial_number) %>% ## arrange in order based on grouping
@@ -41,11 +44,11 @@ distinct <- reversal_data %>%
   mutate(trial_response = ifelse(rightleftcorrect == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
   mutate(trial_response = ifelse(trial_response == 45, "left", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 50, "right", trial_response)) %>% mutate(trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
   mutate(total_trialnum = ifelse(block_number > 1, trial_number + (80*(block_number-1)), trial_number)) %>% #add running counter for total trials
+  mutate(isResponse_num =ifelse(isResponseCorrect == -1, 0, isResponseCorrect)) %>% 
   mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
-  select(!c(trial.presentation_left.latency, trial.presentation_right.latency, trial.presentation_left.response, trial.presentation_right.response)) %>% # delete extra columns for conciseness
-  filter(!total_trialnum > 240 && !block_number > 3) %>% filter(!trial_number == 0) %>% #removing things we don't need
-  group_by(subject, block_number) %>% mutate(percent_correct_block = as.numeric(numbercorrect)/80) %>% ##percentage correct across block
-  mutate(task_phase = ifelse(trial_number <= reversalnumber, "Acquisition", "Reversal")) #note which block they're in
+  select(!c(trial.presentation_left.latency, trial.presentation_right.latency, trial.presentation_left.response, stimulusitem1, trial.presentation_right.response)) #%>% # delete extra columns for conciseness
+  #filter(!total_trialnum > 240 && !block_number > 3) %>% filter(!trial_number == 0) %>% #removing things we don't need
+  #group_by(subject, block_number) %>% mutate(percent_correct_block = as.numeric(numbercorrectfeedback)/80) %>% ##percentage correct across block
 ```
 
 *Only retain distinct trials...*
@@ -62,6 +65,7 @@ distinct <- distinct %>% group_by(subject, block_number, task_phase) %>% #groupi
   mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>%
    ungroup() %>%
   group_by(subject, task_phase, block_number, grp = lag(cumsum(isResponseCorrect == -1), default = 0)) %>%
+  mutate(numbercorrect = cumsum(isResponse_num)) %>%
   mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == -1, 0, cumsum(isResponseCorrect))) %>%
   mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
   ungroup() %>% select(-grp)
@@ -71,6 +75,7 @@ obj <- distinct %>% group_by(subject, block_number, task_phase) %>%
             reached_criterion = min(reached_criterion, na.rm=TRUE),
             percent_correct_phase = max(percent_correct_phase),
             Consecutive_Correct = max(ConsecutiveCorrect),
+            Number_correct = max(numbercorrect),
             NumberofTrials_Phase = max(phase_trialnum)) %>%
   mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
 
