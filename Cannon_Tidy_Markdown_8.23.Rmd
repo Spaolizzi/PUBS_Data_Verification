@@ -140,6 +140,7 @@ Hist_outliers; Mean_cleaned
 ```{r}
 oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list()
 subjects <- as.character(unique(cannon_data$subject))
+
 subjects_list <- list(as.character(unique(cannon_data$subject)))
 for (i in subjects) {
   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")

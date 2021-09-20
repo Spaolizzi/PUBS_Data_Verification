@@ -45,9 +45,6 @@ discrep <- function(angmu, r) {
 
 
 create_vars <- function(data, set_vars){
-  if (numbercorrect %in% set_vars){
-    data$consecutivecorrect <- 
-  }
   if("Abs_PE" %in% set_vars) {
     data$Abs_PE <- NA
     for(r in 1:nrow(data)){
@@ -57,7 +54,7 @@ create_vars <- function(data, set_vars){
         data$Abs_PE[r] <- NA
       } else {
         data$Abs_PE[r] <- discrep(data$outcome[r], data$placementAngle[r])
-      }desc
+      }
     }
   }
   if("PE_angmu" %in% set_vars){
