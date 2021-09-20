@@ -115,10 +115,10 @@ colormatrix <- ifelse(obj$percent_noresp >= .2, wes_palette("Cavalcanti1")[c(1)]
 bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
 
 
-
   tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
 
-
+cannon_earnings <- cannon_data %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_c = cents_earned)
+save(cannon_earnings, file = "Payment/Cannon.Rdata")
 sink("/dev/null")
 tab
 sink(); 
@@ -195,7 +195,6 @@ template <- c(
 plots <- lapply(1:length(oddball_PE), function(nm) {knitr::knit_expand(text = template)})
 
 ```
-
 `r knitr::knit(text = unlist(plots))`
 
 
@@ -213,9 +212,6 @@ template <- c(
 plots <- lapply(1:length(changepoint_PE), function(x) {knitr::knit_expand(text = template)})
 
 ```
-
-
-
 `r knitr::knit(text = unlist(plots))`
 
 
@@ -233,7 +229,6 @@ template <- c(
 plots <- lapply(1:length(changepoint_DM), function(y) {knitr::knit_expand(text = template)})
 
 ```
-
 `r knitr::knit(text = unlist(plots))`
 
 
@@ -251,8 +246,5 @@ template <- c(
 plots <- lapply(1:length(oddball_DM), function(z) {knitr::knit_expand(text = template)})
 
 ```
-
-
-
 `r knitr::knit(text = unlist(plots))`
 

@@ -19,12 +19,14 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans, data.table)
-setwd("~/github_repos/PUBS_Data_Verification/")
+setwd("/Users/lab/github_repos/PUBS_Data_Verification/")
 source("Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
 reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject) %>% filter(n() >= 200)
+
+reversal_data <- reversal_data %>% mutate(subject = ifelse(time == 18:47:13, 456, subject))
 
 ```
 
@@ -35,71 +37,75 @@ reversal <- tidy_reversal(reversal_data)
 
 
 ```{r, include=FALSE}
-##long pipe for creating variables
-reversal <- reversal %>%
-  group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
-  mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
-  arrange(subject, block_number, trial_number) %>% ## arrange in order based on grouping
-  mutate(trial_latency = ifelse(rightleftcorrect == "left", as.numeric(trial.presentation_left.latency), as.numeric(trial.presentation_right.latency))) %>% ## combine latencies to create overall trial latency
-  mutate(trial_response_num = ifelse(rightleftcorrect == "left", trial.presentation_left.response, trial.presentation_right.response)) %>% ## combine responses to create overall trial response
-  mutate(trial_response = ifelse(trial_response_num == 33, "left", as.character(trial_response_num))) %>% mutate(trial_response, trial_response = ifelse(trial_response_num == 36, "right", trial_response)) %>% mutate(trial_response, trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
-mutate(total_trialnum = ifelse(block_number > 1, trial_number + (50*(block_number-1)), trial_number)) %>% #add running counter for total trials
-mutate(isResponse_num =ifelse(isResponseCorrect == -1, 0, isResponseCorrect)) %>% 
-mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
-select(!c(trial.presentation_left.latency, trial.presentation_right.latency, trial.presentation_left.response, stimulusitem1, trial.presentation_right.response)) %>%
-group_by(subject, block_number) %>% mutate(isResponse_num, numbercorrect = cumsum(isResponse_num)) %>%
-mutate(ConsecutiveCorrect = sequence(rle(as.character(isResponse_num))$lengths)) %>%
-  ungroup() %>%
-  group_by(subject, block_number, task_phase) %>%
-  mutate(phase_trialnum = ifelse(task_phase == "Reversal", cumsum(task_phase == "Reversal"), cumsum(task_phase == "Acquisiton"))) %>%  ## number of trials since reversal
-  mutate(numbercorrect_phase = ifelse(task_phase == "Reversal", as.numeric(cumsum(isResponseCorrect == 1)), as.numeric(cumsum( isResponseCorrect == 1)))) %>% ## number of correct choices by phase
-mutate(ResponseCorrect = as.numeric(isResponseCorrect)) %>% ## transform to numeric
-  mutate(reached_criterion = ifelse(as.numeric(numbercorrect_phase) == 10, phase_trialnum, NA)) %>% ## did subjects get 10 consecutive answers correct
-  mutate(percent_correct_phase = numbercorrect_phase/max(phase_trialnum))  %>% # percent of correct choices by phase (acquisiton or reversal)
-  #mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>%
-   ungroup() %>%
-  group_by(subject, block_number) %>%
-  mutate(numbercorrect = cumsum(isResponse_num)) %>%
-  ungroup() %>% 
-  group_by(subject, block_number, task_phase, grp = lag(cumsum(isResponseCorrect == -1), default = 0)) %>%
-  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == -1, 0, cumsum(isResponseCorrect))) %>%
-  mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
-  filter(!block_number > 4) %>%
-  ungroup() %>% select(-grp)
-  # delete extra columns for conciseness
-  #filter(!total_trialnum > 240 && !block_number > 3) %>% filter(!trial_number == 0) %>% #removing things we don't need
-  #group_by(subject, block_number) %>% mutate(percent_correct_block = as.numeric(numbercorrectfeedback)/80) %>% ##percentage correct across block
+
+reversal <- create_vars_reversal(reversal)
 ```
 
 *Only retain distinct trials...*
 
 ```{r, include=FALSE}
-obj <- reversal %>% group_by(subject, block_number, task_phase) %>%
+by_block_phase <- reversal %>% group_by(subject, block_number, task_phase) %>%
   summarise(avg_latency = mean(as.numeric(trial_latency)),
             reached_criterion = min(reached_criterion, na.rm=TRUE),
-            percent_correct_phase = max(percent_correct_phase),
             Consecutive_Correct = max(ConsecutiveCorrect),
-            Number_correct = max(numbercorrect),
-            NumberofTrials_Phase = max(phase_trialnum )) %>%
-  mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below"))
+            NumberofTrials = max(trial_number))%>%
+  mutate(above_threshold = ifelse(reached_criterion >= 10, "Above", "Below")) 
 
-stats <- colMeans(obj[sapply(obj, is.numeric)])
+by_block <- reversal %>% group_by(subject, block_number) %>%
+  summarise(avg_latency = mean(as.numeric(trial_latency)),
+            reached_criterion = min(reached_criterion, na.rm=TRUE),
+            percent_correct_phase = max(numbercorrect)/50,
+            reversal_number = (max(reversalnumber)),
+            NumberofTrials = max(trial_number))%>%
+  mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below")) 
 
-obj <- rbind(obj, stats)
-obj$subject[81] <- "Means"
 
-#save(distinct, obj, file = "Reversal_Task_Cleaned.Rdata")
+by_phase <- reversal %>% group_by(subject, task_phase) %>%
+  summarise(avg_latency = mean(as.numeric(trial_latency)),
+            reached_criterion = min(reached_criterion, na.rm=TRUE),
+            percent_correct_phase = mean(percent_correct_phase),
+            NumberofTrials_Phase = max(phase_trialnum))%>%
+  mutate(above_threshold = ifelse(percent_correct_phase >= .50, "Above", "Below")) 
+
+stats <- colMeans(by_block[sapply(by_block, is.numeric)])
+by_block <- rbind(by_block, stats)
+by_block$subject[21] <- "Means"
+
+
+stats <- colMeans(by_phase[sapply(by_phase, is.numeric)])
+by_phase <- rbind(by_phase, stats)
+by_phase$subject[21] <- "Means"
+
+
+stats <- colMeans(by_block_phase[sapply(by_block_phase, is.numeric)])
+by_block_phase <- rbind(by_block_phase, stats)
+by_block_phase$subject[81] <- "Means"
+
+#save(distinct, by_block_phase, file = "Reversal_Task_Cleaned.Rdata")
 ```
 
 ### Pilot Results
 
-**Table 1**. Performance statistics were calculated by block (1,2, or 3) and phase (acquisition or reversal). All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maximum number of consecutive "correct" choices participants made were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices.
+**Table 1**. Performance statistics were calculated by block (1,2, or 3), and phase (acquisition or reversal). . Problematic rows are highlighted yellow. 
+
+Avg_latency:
+Reached_Criterion:
+Percent_Correct_Phase;
+Consecutive-Correct:
+Number_Correct:
+Numberoftrials_phase: number of trials 
+Above_threshold: all white blocks cleared the threshold of performing better than chance accuracy (>50% correct). 
+
+
+All participants cleared the first criterion of making at least 10 "correct choices" per block (reached_criterion). Data were flagged as "Below Threshold" if participants chose the "correct" option less than 50% of the time in any given phase (percent_correct_phase). The maximum number of consecutive "correct" choices participants made were also recorded: only 1 participant in 1 block made less than 8 consecutive correct choices.
 
 
 ```{r,echo=FALSE}
 subjects <- as.character(unique(reversal$subject)); cowplot_list <- list(); plot_subjects <- list()
-colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
-tab <- obj %>% flextable() %>% flextable::bg(j = 1:10, bg=colormatrix)
+colormatrix <- ifelse(by_block_phase$above_threshold == "Below", wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+tab <- by_block_phase %>% flextable() %>% flextable::bg(j = 1:10, bg=colormatrix)
+reversal_earnings <- reversal %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_r = cents_earned)
+save(reversal_earnings, file = "Payment/Reversal.Rdata")
 
 sink("/dev/null")
 tab
@@ -113,7 +119,7 @@ sink();
 ```
 
 
-**Figure 1**. Rough look at reaction time. The distribution looks about correct: For eventual analysis, We will like drop trials with no response. 
+**Figure 1**. This chunk prints an overall view of reaction time. 
 ```{r}
 rts <- list()
 for (i in subjects) {
@@ -121,34 +127,19 @@ for (i in subjects) {
 rt_hist <- ggplot(s, aes(trial_latency), stat = "bin") + geom_histogram() + ggtitle(i)
 rts[[i]] <- rt_hist
 }
+
+rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(trial_latency), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
+rts[length(rts)]
 ```
 
-
-## Summary of Reversal Findings {.tabset}
-```{r}
-
-template <- c(
-    "### rts {{z}}\n",
-    "```{r, echo = FALSE}\n",
-    "rts[[{{z}}]] \n",
-    "```\n",
-    "\n"
-  )
-
-plots <- lapply(1:length(rts), function(z) {knitr::knit_expand(text = template)})
-
-```
-
-
-`r knitr::knit(text = unlist(plots))`
 
 **Figures 2a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be work adding a check on whether participants are responding (or the percentage of trials they responded on). Similarly, it looks as though longer RTs are correlated with worse performance. It may be worth adding an explicit instruction for participants to respond as quickly and accurately as possible. This should also speed up the task considerably. 
 
 
 ```{r, message = 'hide'}
 for (i in subjects) {
-  s <- reversal %>% dplyr::filter(subject == i)
-  scatter <- ggplot(s, aes(x=trial_number, y= trial_response, color = as.factor(isResponse_num))) +
+  d <- reversal %>% dplyr::filter(subject == i)
+  scatter <- ggplot(d, aes(x=trial_number, y= trial_response, color = as.factor(isResponse_num))) +
      geom_point() +
      geom_vline(aes(xintercept = reversal_trial, color = "Reversal Point")) +
      scale_color_manual(labels = c("Incorrect", "Correct", "Reversal Point"),
@@ -156,7 +147,7 @@ for (i in subjects) {
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~block_number)
   scatter[[i]] <- scatter
-h <- obj %>% filter(subject == i) %>% group_by(block_number)
+h <- by_block_phase %>% filter(subject == i) %>% group_by(block_number)
 hist <- ggplot(h, aes(y=percent_correct_phase, x = task_phase, fill = above_threshold)) +
   geom_bar(stat = "identity") + 
   scale_fill_manual(values = (wes_palette("Cavalcanti1")[c(4,5)])) + 
