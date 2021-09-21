@@ -70,7 +70,7 @@ by_phase <- reversal %>% group_by(subject, task_phase) %>%
 
 stats <- colMeans(by_block[sapply(by_block, is.numeric)])
 by_block <- rbind(by_block, stats)
-by_block$subject[21] <- "Means"
+by_block$subject[41] <- "Means"
 
 
 stats <- colMeans(by_phase[sapply(by_phase, is.numeric)])
@@ -134,9 +134,24 @@ rts[length(rts)]
 ```
 
 
-**Figures 2a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be work adding a check on whether participants are responding (or the percentage of trials they responded on). Similarly, it looks as though longer RTs are correlated with worse performance. It may be worth adding an explicit instruction for participants to respond as quickly and accurately as possible. This should also speed up the task considerably. 
+## Summary of Reversal Findings {.tabset}
+```{r}
+
+template <- c(
+    "### rts {{y}}\n",
+    "```{r, echo = FALSE}\n",
+    "rts[[{{y}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(rts), function(y) {knitr::knit_expand(text = template)})
+
+```
 
 
+
+`r knitr::knit(text = unlist(plots))`
 ```{r, message = 'hide'}
 for (i in subjects) {
   d <- reversal %>% dplyr::filter(subject == i)
@@ -183,17 +198,9 @@ plots <- lapply(1:length(cowplot_list), function(y) {knitr::knit_expand(text = t
 
 
 #### Pilot Findings Summary 
-On average, participants made the "correct" choice approximately 80% of the time, and made at least 10 correct choices by trial 17. Both of these outcomes suggest the block length can be shortened as suggested by MNH to as little as 50 trials. Regarding data verification and visualization, it will be important to look at RT data more explicitly in the larger sample. Based on the pilot, it looks like it could be handled pretty easily with a log or invesrse transform. 
+On average, participants made the "correct" choice approximately 85% of the time, and made at least 10 correct choices by trial 12, on average. Both of these outcomes suggest the block length can be shortened as suggested by MNH to as little as 5 blocks of 40 trials. Regarding data verification and visualization, it will be important to look at RT data more explicitly in the larger sample. Based on the pilot, it looks like it could be handled pretty easily with a log or invesrse transform. 
 
-### Task Reccomendations - For Michael Discussion
-1. Block length to 50 trials per MNH's suggestion. Given subjects learned the contingencies in an average of 16 trials, this seems about correct. For time's sake, I'm thinking of erring on the side of 4 blocks of 50 trials. 
-2. Explicitly instruct participants to click as quickly and accurately as possible, and shorten response windows such that the entire task will take between 8 and 10 minutes. See "Task Timing" for more details.  https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=390744519 
-3. Combine stimulus selection and feedback phases, to save time?
-4. Collect 10-15 subjects and check for final timing.
+### Data Check Plans - For Michael Discussion 9/23
 
-### Data Check Plans - For Michael Discussion 8/26
-
-1. Translate dplyr operations into usable functions and try to duplicate as little as possible across tasks.  
-2. drop_irregular function
-3. Check RTs and provide info on possible transforms
-4. 
+1.Confirm that final data is generating data that makes sense. 
+2. Generate graphs of bad RTS and  provide info on possible transforms.
