@@ -70,6 +70,8 @@ plot_print <- "all" # could be "random"
 The majority of the work being done here is occuring behind the scenes in tidy_functions
 ```{r clean data, include=FALSE}
 cannon_data <- tidy_cannon(cannon_data_8.28) ## transforms raw data into workable dataframe
+check_tidy(cannon_data) # found double subject
+cannon_data <- cannon_data %>% mutate(subject = ifelse(time == "18:52:12", 456, subject))
 ```
 
 ### 2. Transform Pilot Data...

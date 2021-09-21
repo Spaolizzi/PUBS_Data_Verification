@@ -14,9 +14,6 @@ tidy_cannon <- function(data) {
   return(data)
 }
 
-
-
-
 create_vars_reversal <- function(data){
   if(data$date < "2021-08-31"){
    data<- data %>%
@@ -52,6 +49,11 @@ create_vars_reversal <- function(data){
   }
 }
 
+check_tidy <- function(data){
+  check <- data %>% group_by(subject) %>%
+  summarise(count = n_distinct(time))
+  return(check)
+}
 
 tidy_reversal <- function(data) {
   if(data$date < "2021-08-31"){
@@ -67,7 +69,7 @@ tidy_reversal <- function(data) {
   } else if (data$date > "2021-08-31"){
     
   }
-  
+
   return(data)
 }
 
@@ -83,7 +85,6 @@ discrep <- function(angmu, r) {
   }
   return(phi)
 }
-
 
 
 create_vars <- function(data, set_vars){
@@ -112,22 +113,28 @@ create_vars <- function(data, set_vars){
   if ("catch_miss" %in% set_vars) {
     data$catch_miss <- data$outcomeindex 
     for(r in 1:nrow(data)){
-      if (data$catch_miss[r] == 1){ ## check 
-        if(data$trial.placeshield_mouse.latency[r] == 2500){
-          data$catch_miss[r] <- "noresp"
-          data$PE_angmu[r] <- NA
-          data$Abs_PE[r] <- NA
-          data$placementAngle[r] <- NA
+      if(data$catch_miss[r] == 1){ ## check 
+        if (data$trial.placeshield_mouse.latency[r] == 2500){
           data$trial.placeshield_mouse.latency[r] <- NA
-        }
+        } 
       } else if (data$catch_miss[r] == 5){
         data$catch_miss[r] <- "hit"
       } else if (data$catch_miss[r] == 6){
         data$catch_miss[r] <- "miss"
       } 
     }
+    for(r in 1:nrow(data)) {
+      if(is.na(data$trial.placeshield_mouse.latency[r])){
+        data$catch_miss[r] <- "noresp"
+        data$PE_angmu[r] <- NA
+        data$Abs_PE[r] <- NA
+        data$placementAngle[r] <- NA
+        data$trial.placeshield_mouse.latency[r] <- NA
+      }
+    }
   }
   if ("changepoint" %in% set_vars){
+    data$changepoint <- NA
     for(r in 1:nrow(data)){
      data$changepoint[r] <- ifelse(data$StaySwitch[r] == 1, data$trialnum[r], NA)
       }
