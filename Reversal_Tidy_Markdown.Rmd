@@ -8,9 +8,8 @@ output: html_document
 
 The SRLT builds on established reversal paradigms (Costa et al., 2015; Dombrovski et al., 2010). In this task, participants select between two random stimuli in three 80-trial blocks, for a total of 240 trials. After participants make their choice, feedback appears on the screen related to whether their choice was correct or incorrect (Figure 1). Each block is made up of an acquisition and reversal for three separate stimulus pairings. In the initial acquisition phase, a given stimulus is associated with “correct” feedback 80% and “incorrect” feedback 20% of the time, while the other is incorrect feedback 80% and correct feedback 20% of the time. In the reversal phase, contingencies are reversed such that the previously predominantly rewarding stimulus is now the less rewarding option. Participants learn these contingencies about the same two stimuli for one acquisition and one reversal phase before two new stimuli are presented. Data for this task were collected using the stimulus presentation software Inquisit.
 
-### Pilot Data
-#### TL;DR for Data Cleaning
-This final dataframe resulting from this cleaning was used to re-program data structure from the task, so the current cleaning code will be updated, so the current cleaning code does not need to be reviewed unless you suspect anaomalies in the resulting dataframe. For any questions related to the definition of task variables, please refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. Skip to heading **Pilot Results** for information on pilot data. 
+### Data Cleaning
+The current cleaning code is housed in the Tidy_functions_PUBS script: refer to these functions for any questions about data cleaning. For any questions related to the definition of task variables, refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. 
 
  *Load Pilot Data...*
 
@@ -24,12 +23,12 @@ source("Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject) %>% filter(n() >= 200)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(n() >= 200)
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
 
-summary <- "by_phase" #by_block, by_phase, by_block_phase
+summary <- "by_block" #by_block, by_phase, by_block_phase
 
 ```
 
@@ -133,6 +132,7 @@ sink();
 
 **Figure 1**. This chunk prints an overall view of reaction time. 
 ```{r}
+
 rts <- list()
 for (i in subjects) {
   s <- reversal %>% dplyr::filter(subject == i)
@@ -140,12 +140,14 @@ rt_hist <- ggplot(s, aes(trial_latency), stat = "bin") + geom_histogram() + ggti
 rts[[i]] <- rt_hist
 }
 
+
+
 rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(trial_latency), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
-rts[length(rts)]
+rts[]
 ```
 
 
-**Figures 2a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be work adding a check on whether participants are responding (or the percentage of trials they responded on). Similarly, it looks as though longer RTs are correlated with worse performance. It may be worth adding an explicit instruction for participants to respond as quickly and accurately as possible. This should also speed up the task considerably. 
+**Figures 2a-e**. Further elaborating from Table 1. It does appear that subjects who had a tendency not to respond often did worse on the benchmarks above. It may be worth adding a check on whether participants are responding (or the percentage of trials they responded on). Similarly, it looks as though longer RTs are correlated with worse performance. It may be worth adding an explicit instruction for participants to respond as quickly and accurately as possible. This should also speed up the task considerably. 
 
 
 ```{r, message = 'hide'}
@@ -208,8 +210,10 @@ plots <- lapply(1:length(cowplot_list), function(y) {knitr::knit_expand(text = t
 ```{r}
 a_1 <- aov(trial_latency ~ task_phase, data = reversal)
 summary(a_1)
+a_1 <- aov(trial_latency ~ block_number, data = reversal)
+summary(a_1)
 
-rt_trialnum <- lm(trial_latency ~ total_trialnum, data = reversal)
+rt_trialnum <- lm(trial_latency ~ total_trialnum + task_phase + block_number, data = reversal)
 summary(rt_trialnum)
 ```
 
@@ -224,11 +228,11 @@ summary(rt_trialnum)
 
 ##### Data Visualizations and Verification
 
-SGP added an option at the top of the script to examine data by block, phase, or both. This will hopefully help to adjust views on data easily. SGP also added functions which check for overlapping Ids. 
+SGP added an option at the top of the script to examine data by block, phase, or both. This will hopefully help to adjust views on data easily. SGP also added functions which check for overlapping IDs. 
 
 ##### Reaction Time.
 
-Average reaction times averaged approximately 200 ms, which is incredibly short. We should spend some time discussing the implications of this. 
+Average reaction times averaged approximately 200 ms, which is incredibly short. We should spend some time discussing the implications of this. There were also trials with 0 latency, which seems physically impossible. 
 
 ##### Data Check/Task Tweak Plans
 

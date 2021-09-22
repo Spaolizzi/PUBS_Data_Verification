@@ -8,13 +8,13 @@ output: html_document
 
 The SRLT builds on established reversal paradigms (Costa et al., 2015; Dombrovski et al., 2010). In this task, participants select between two random stimuli in three 80-trial blocks, for a total of 240 trials. After participants make their choice, feedback appears on the screen related to whether their choice was correct or incorrect (Figure 1). Each block is made up of an acquisition and reversal for three separate stimulus pairings. In the initial acquisition phase, a given stimulus is associated with “correct” feedback 80% and “incorrect” feedback 20% of the time, while the other is incorrect feedback 80% and correct feedback 20% of the time. In the reversal phase, contingencies are reversed such that the previously predominantly rewarding stimulus is now the less rewarding option. Participants learn these contingencies about the same two stimuli for one acquisition and one reversal phase before two new stimuli are presented. Data for this task were collected using the stimulus presentation software Inquisit.
 
-### Pilot Data
-#### TL;DR for Data Cleaning
-This final dataframe resulting from this cleaning was used to re-program data structure from the task, so the current cleaning code will be updated, so the current cleaning code does not need to be reviewed unless you suspect anaomalies in the resulting dataframe. For any questions related to the definition of task variables, please refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. Skip to heading **Pilot Results** for information on pilot data. 
+
+### Data Cleaning
+The current cleaning code is housed in the Tidy_functions_PUBS script: refer to these functions for any questions about data cleaning. For any questions related to the definition of task variables, refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. 
 
  *Load Pilot Data...*
 
-```{r setup, message=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts

@@ -1,13 +1,14 @@
+
 tidy_cannon <- function(data) {
   data <- data %>% 
     select(!c(build, experimentName, list.Condition.currentvalue)) %>% 
     group_by(subject, time) %>% ## be by subject
     dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
     mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
-    mutate_if(is.integer, as.numeric) %>%
+    mutate_if(is.integer, as.numeric) %>% #convert all integers to numeric
     mutate(cond = as.factor(cond))
   
-  #numeric columns 
+  #convert non-numeric columns  to numeric
   cols.num <- c("placementAngle","prev_placementAngle", "shield_size", "subject")
   data[cols.num] <- sapply(data[cols.num],as.numeric)
   sapply(data, class)
@@ -51,7 +52,8 @@ create_vars_reversal <- function(data){
 
 check_tidy <- function(data){
   check <- data %>% group_by(subject) %>%
-  summarise(count = n_distinct(time))
+  summarise(count = n_distinct(time),
+            no_resp = )
   return(check)
 }
 
