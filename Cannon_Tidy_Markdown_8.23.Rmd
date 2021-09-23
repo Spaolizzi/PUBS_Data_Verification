@@ -87,7 +87,6 @@ The variables created by the set_vars vector are:
 ```{r create variables, include=FALSE}
 set_vars <- c("Abs_PE", "PE_angmu", "catch_miss", "changepoint" ) ##name variables needed for analysis, add as they become apparent 
 cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
-#create summary
 ```
 
 ### 3. Checks for  other idiosyncracies?
@@ -121,9 +120,7 @@ bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
 
 cannon_earnings <- cannon_data %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_c = cents_earned)
 save(cannon_earnings, file = "Payment/Cannon.Rdata")
-sink("/dev/null")
 tab
-sink(); 
 ```
 
 

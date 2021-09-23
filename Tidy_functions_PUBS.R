@@ -184,7 +184,3 @@ check_irreg <- function(data){
 # }
 
 
-
-
-
-
