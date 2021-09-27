@@ -23,7 +23,7 @@ source("Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(n() >= 200)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_7030_formatcheck.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(n() >= 200)
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
@@ -61,7 +61,7 @@ reversal <- create_vars_reversal(reversal)
 
 if (summary == "by_block_phase"){
   obj <- reversal %>% group_by(subject, block_number, task_phase) %>%
-  summarise(avg_latency = mean(as.numeric(trial_latency)),
+  summarise(avg_latency = mean(as.numeric(rt)),
             reached_criterion = min(reached_criterion, na.rm=TRUE),
             percent_correct = max(percent_correct_phase),
             NumberofTrials = max(trial_number))%>%
@@ -74,7 +74,7 @@ obj$subject[nrow(obj)] <- "Means"
 
 if (summary == "by_block"){
 obj <- reversal %>% group_by(subject, block_number) %>%
-  summarise(avg_latency = mean(as.numeric(trial_latency)),
+  summarise(avg_latency = mean(as.numeric(rt)),
             reached_criterion = min(reached_criterion, na.rm=TRUE),
             percent_correct = max(numbercorrect)/50,
             reversal_number = (max(reversalnumber)),
@@ -87,7 +87,7 @@ obj$subject[nrow(obj)] <- "Means"
 
 if (summary == "by_phase"){
 obj <- reversal %>% group_by(subject, task_phase) %>%
-  summarise(avg_latency = mean(as.numeric(trial_latency)),
+  summarise(avg_latency = mean(as.numeric(rt)),
             reached_criterion = min(reached_criterion, na.rm=TRUE),
             NumberofTrials = n(),
             NumberCorrect = max(cumsum(isResponse_num)),
@@ -140,15 +140,15 @@ sink();
 rts <- list()
 for (i in subjects) {
   s <- reversal %>% dplyr::filter(subject == i)
-rt_hist <- ggplot(s, aes(trial_latency), stat = "bin") + geom_histogram() + ggtitle(i)
+rt_hist <- ggplot(s, aes(rt), stat = "bin") + geom_histogram() + ggtitle(i)
 rts[[i]] <- rt_hist
 }
 
 
 
-rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(trial_latency), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
+rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(rt), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
 rts[]
-summary(reversal$trial_latency)
+summary(reversal$rt)
 ```
 
 
@@ -213,12 +213,12 @@ plots <- lapply(1:length(cowplot_list), function(y) {knitr::knit_expand(text = t
 Overall, these graphs corroborate the idea that participants may be learning incredibly quickly. I worry that this means participants will reach a ceiling very fast, and we won't see effects of block or learning over time. Below, I run a few quick tests to see if 
 
 ```{r}
-a_1 <- aov(trial_latency ~ task_phase, data = reversal)
+a_1 <- aov(rt ~ task_phase, data = reversal)
 summary(a_1)
-a_1 <- aov(trial_latency ~ block_number, data = reversal)
+a_1 <- aov(rt ~ block_number, data = reversal)
 summary(a_1)
 
-rt_trialnum <- lm(trial_latency ~ total_trialnum + task_phase + block_number, data = reversal)
+rt_trialnum <- lm(rt ~ total_trialnum + task_phase + block_number, data = reversal)
 summary(rt_trialnum)
 
 emmeans(rt_trialnum, "task_phase")
