@@ -13,7 +13,7 @@ The current cleaning code is housed in the Tidy_functions_PUBS script: refer to 
 
  *Load Pilot Data...*
 
-```{r setup, message=FALSE}
+```{r setup, message=FALSE} 
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
@@ -23,18 +23,19 @@ source("Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_7030_formatcheck.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(n() >= 200)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_Structure.csv", fill = TRUE) %>% group_by(subject, time)
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
 
-summary <- "by_phase" #by_block, by_phase, by_block_phase
+summary <- "by_block_phase" #by_block, by_phase, by_block_phase
 
 ```
 
 
 *Clean and transform Data...*
 ```{r}
+trim_cols <- TRUE
 reversal <- tidy_reversal(reversal_data)
 check_tidy(reversal)
 

@@ -54,14 +54,15 @@ create_vars_reversal <- function(data){
       arrange(subject, block_number, trial_number) %>% ## arrange in order based on grouping
       mutate(rt = as.numeric(trial.choice.latency)) %>% ## combine latencies to create overall trial latency
       mutate(trial_response_num = as.numeric(trial.choice.response)) %>% ## combine responses to create overall trial response
-      mutate(trial_response = ifelse(trial_response_num == 33, "left", as.character(trial_response_num))) %>% mutate(trial_response, trial_response = ifelse(trial_response_num == 36, "right", trial_response)) %>% mutate(trial_response, trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
-      mutate(total_trialnum = ifelse(block_number > 1, trial_number + (50*(block_number-1)), trial_number)) %>% #add running counter for total trials
+      mutate(trial_response = ifelse(trial_response_num == 33, "left", as.character(trial_response_num))) %>% mutate(trial_response, trial_response = ifelse(trial_response_num == 36, "right", trial_response)) %>%
+      mutate(trial_response, trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
       mutate(isResponse_num =ifelse(isResponseCorrect == -1, 0, isResponseCorrect)) %>% 
       mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
       group_by(subject, block_number) %>% mutate(isResponse_num, numbercorrect = cumsum(isResponse_num)) %>%
       mutate(ConsecutiveCorrect = sequence(rle(as.character(isResponse_num))$lengths)) %>%
       ungroup() %>%
       group_by(subject, block_number, task_phase) %>%
+      arrange(subject) %>%
       mutate(phase_trialnum = ifelse(task_phase == "Reversal", cumsum(task_phase == "Reversal"), cumsum(task_phase == "Acquisiton"))) %>%  ## number of trials since reversal
       mutate(numbercorrect_phase = ifelse(task_phase == "Reversal", as.numeric(cumsum(isResponseCorrect == 1)), as.numeric(cumsum(isResponseCorrect == 1)))) %>% ## number of correct choices by phase
       mutate(ResponseCorrect = as.numeric(isResponseCorrect)) %>% ## transform to numeric
@@ -77,7 +78,14 @@ create_vars_reversal <- function(data){
       mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
       filter(!block_number > 5) %>%
       ungroup() %>% select(-grp)
-    }
+  }
+  if (trim_cols == TRUE){
+    drop <- c("stimulusitem1", "trialcode", 
+              "picture.correctStim.currentvalue", 
+              "picture.incorrectStim.currentvalue", "correctKey", 
+              "incorrectKey", "trial.choice.percentcorrect" )
+    df = data[,!(names(data) %in% drop)]
+  }
 }
 
 check_tidy <- function(data){
@@ -100,7 +108,7 @@ tidy_reversal <- function(data) {
       filter(!stimulusitem == "+")
   } else if (data$date > "2021-08-31"){
     data <- data %>% 
-      select(!c(build, experimentName, totalcorrect)) %>% 
+      select(!c(build, experimentName)) %>% 
       group_by(subject, time) %>% ## be by subject
       filter(!stimulusitem1 == "Press SPACE to continue")
     data <- as.data.table(data)
