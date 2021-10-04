@@ -129,6 +129,21 @@ discrep <- function(angmu, r) {
 
 
 create_vars <- function(data, set_vars){
+  if (trim_cols == TRUE){
+    drop <- c("block.InstructionBlock.timestamp", "trial.begin_block.timestamp",
+              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp",
+              "trial.showPE.timestamp","trial.cannon_outcome.timestamp", 
+              "picture.shield.currentitem")
+    df = data[,!(names(data) %in% drop)]
+  }
+   if("total_trialnum" %in% set_vars) {
+    data <- data %>% group_by(subject, cond) %>% 
+      mutate(total_trialnum = ifelse(cond == "ODDBALL", cumsum(cond == "ODDBALL"), cumsum(cond == "CHANGEPOINT")))
+  }
+  if("total_changepoints" %in% set_vars) {
+    data <- data %>% group_by(subject, cond) %>% 
+      mutate(total_trialnum = ifelse(cond == "ODDBALL", n(data$changepoint), cumsum(cond == "CHANGEPOINT")))
+  }
   if("Abs_PE" %in% set_vars) {
     data$Abs_PE <- NA
     for(r in 1:nrow(data)){
@@ -147,8 +162,8 @@ create_vars <- function(data, set_vars){
       if(is.na(data$placementAngle[r])){
         tmp <- NA
       } else {
-      tmp <- discrep(data$angmu[r], data$placementAngle[r])
-      data$PE_angmu[r] <- tmp}
+      tmp <- 
+      data$PE_angmu[r] <- discrep(data$angmu[r], data$placementAngle[r])}
     }
   }
   if ("catch_miss" %in% set_vars) {

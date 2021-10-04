@@ -5,8 +5,8 @@ date: "8/3/2021"
 output: html_document
 ---
 
-### Data Check Plans - For Michael Discussion 8/26
-This markdown will hopefully accomplish the following data cleaning and diagnostic checks
+### Data Check Plans
+This markdown will be utilized for data cleaning and diagnostic checks
 
 1. Import and clean data: 
       a. top chunk and *tidy_cannon* function
@@ -14,7 +14,7 @@ This markdown will hopefully accomplish the following data cleaning and diagnost
 2. identify variables to transform 
       b. (*set_vars*) and create *create_vars*
 
-3. look for irregular rows:
+3. look for irregular rows (*check_irreg*):
      a. hits that should be misses, misses that should be hits
      b. systematically weird variation (rts that are too long, too short)
   
@@ -26,7 +26,7 @@ This markdown will hopefully accomplish the following data cleaning and diagnost
     b. means
   
 6. Graphical representation of trials 
-    a. PE_raw by hits/misses
+    a. PE by hits/misses
     b. PE_angmu by hits/misses
 
 
@@ -47,7 +47,7 @@ It should also be noted that data for this pilot came from two, slightly differe
 knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans)
 setwd("~/github_repos/PUBS_Data_Verification/")
 source("Tidy_functions_PUBS.R")
 
@@ -67,7 +67,7 @@ plot_print <- "all" # could be "random"
 
 
 ### 1. Clean Pilot Data...
-The majority of the work being done here is occuring behind the scenes in tidy_functions
+It is important to get rid of excess trials and only retain information that will be important in analysis.
 ```{r clean data, include=FALSE}
 cannon_data <- tidy_cannon(cannon_data_8.28) ## transforms raw data into workable dataframe
 check_tidy(cannon_data) # found double subject
@@ -77,15 +77,20 @@ cannon_data <- cannon_data %>% mutate(subject = ifelse(time == "18:52:12", 456, 
 ### 2. Transform Pilot Data...
 This chunk sets new variables and alters any old ones that need to be tidied.
 The variables created by the set_vars vector are:
+
 **Abs_PE**. Absolute prediction error (calculated using the discrep function): the PE from outcome to shield placement
-**PE_angmu**. Prediction error from mean of distribution to shield placement. Calculated with discrep function. 
-**catch_miss**. Codes values as factors "catch", "miss", "noresp". Used for coding and mean comparison
+
+**PE_angmu**. Prediction error from mean of distribution to shield placement. Calculated with discrep function.
+
+**catch_miss**. Codes values as factors "catch", "miss", "noresp". Used for coding and mean comparison.
+
 **changepoint** A column that reflects the trial number of changepoints. contains trial number when changepoint occurs and NA when no changepoint has occured. 
 
 **Table 1**. *High-Level Task Performance.* This check returns block-level info about subject's performance. Participants are flagged if they did not respond to more than half of trials. 
 
 ```{r create variables, include=FALSE}
-set_vars <- c("Abs_PE", "PE_angmu", "catch_miss", "changepoint" ) ##name variables needed for analysis, add as they become apparent 
+set_vars <- c("Abs_PE", "PE_angmu", "catch_miss", "changepoint", "total_trialnum" ) ##name variables needed for analysis, add as they become apparent 
+trim_cols <- TRUE
 cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
 ```
 
@@ -93,11 +98,32 @@ cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
 It's probably worth writing this into a function as well. I should probably do this before I implement high-level checks. Ideas for things I might need to check are:
 **Miscodes**. Misses that are actually hits, Hits that are actually misses, etc. 
 **Odd numbers of trials** Participants bailing early on the task, getting stuck somewhere, etc. 
+
+In this pilot data, we are still getting occasional hits and misses that don't make sense. I think this is due to 
 ```{r check irrgular}
 cannon_data <- check_irreg(cannon_data) #check for any mistaken hits
-irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg )
-irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg )
-irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size, Irreg)
+irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size)
+irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size)
+irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, Abs_PE, angleup, angledown, shield_size)
+range <- cannon_data %>% 
+  group_by(subject, time) %>% summarise(placement_angle_min = min(cannon_data$placementAngle %>% na.omit),
+                                   placement_angle_max = max(cannon_data$placementAngle %>% na.omit),
+                               outcome_min = min(cannon_data$outcome %>% na.omit),
+                               outcome_max = max(cannon_data$outcome %>% na.omit),
+                               angleup_min = min(cannon_data$angleup %>% na.omit),
+                               angleup_max = max(cannon_data$angleup %>% na.omit),
+                               angledown_min = min(cannon_data$angledown %>% na.omit),
+                               angledown_max = max(cannon_data$angledown %>% na.omit))
+
+if(nrow(irreg_plot_hit) > 0){
+  irreg_plot_hit %>% select()
+}
+if(nrow(irreg_plot_miss) > 0){
+  irreg_plot_miss
+}
+if(nrow(irreg_plot_NA) > 0){
+  irreg_plot_NA
+}
 
 ```
 
@@ -112,7 +138,7 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
   arrange(subject,totalearnings) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) %>% mutate(Avg_overall_PE = mean(avg_PE, na.rm = TRUE)) %>% ungroup()
 save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
-colormatrix <- ifelse(obj$percent_noresp >= .2, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+colormatrix <- ifelse(obj$percent_noresp >= .2 || obj$obscount != 60, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
 bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
 
 
@@ -126,55 +152,59 @@ tab
 
 ### 5. Reaction time data
 
-**Figure 1**. Below is a histogram of all reaction time data.
+**Figure 1**. Below is a histogram of all reaction time data.This is beautiful! Tried both woth and without subject 456, who seems a little problematic based on the summary statistics. Overall, happy with this!
 
 ```{r RT overview, message = 'hide'}
-Hist_outliers <- ggplot(cannon_data, aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
-Mean_cleaned <- cannon_data %>% ungroup () %>% filter(!trial.placeshield_mouse.latency == 2500) %>% summarise(mean = mean(trial.placeshield_mouse.latency))
+Hist_outliers <- ggplot(cannon_data %>% filter(!subject == 456), aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
+Mean_cleaned <- cannon_data %>% filter(!subject == 456) %>% ungroup () %>% filter(!trial.placeshield_mouse.latency == 2500) %>% summarise(mean = mean(trial.placeshield_mouse.latency)) 
 Hist_outliers; Mean_cleaned
 ```
 
 ### 6. Graphical Respresentations by subject
 
+I'm having some trouble with graphing this. For whatever reason, the oddball graphs are not happy with the tabset format. Everything else seems to be playing nicely, and it seems as though participants are learning across the task. 
+
 ```{r}
 oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list()
 subjects <- as.character(unique(cannon_data$subject))
+subjects <- subjects[! subjects %in% c("456")]    
 
 subjects_list <- list(as.character(unique(cannon_data$subject)))
 for (i in subjects) {
-  o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL")
-  oddballPE <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) +
-     geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
+  o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL") %>% filter(!is.na(Abs_PE))
+  if(nrow(o) > 100){
+    oddballPE <- ggplot(o, aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
   oddball_PE[[i]] <- oddballPE
-   
   oddballDM <- ggplot(o, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
      geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,5,1,4)])) +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
    oddball_DM[[i]] <- oddballDM
-  
-  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT")
-  changepointPE <- ggplot(c,aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
+  }
+  else {oddball_PE[[i]] <- NULL}
+  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT") %>% filter(!is.na(Abs_PE))
+  if(nrow(c) > 100){
+  changepointPE <- ggplot(c, aes(x=trialnum, y=Abs_PE, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
   changepoint_PE[[i]] <- changepointPE
   
  changepointDM <- ggplot(c, aes(x=trialnum, y=PE_angmu, color = catch_miss)) +
    geom_point() +
-   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,1,5)]))  +
+   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
       xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
      facet_wrap(~blocknum)
  
   changepoint_DM[[i]] <- changepointDM
-  
+  }
   
 }
-#changepoint_PE; changepoint_DM; oddball_DM; oddball_PE
+#changepointPE; changepointDM; #oddball_DM; oddball_PE
 
 ```
 
@@ -184,14 +214,14 @@ for (i in subjects) {
 ```{r}
 
 template <- c(
-    "### OddballPE {{nm}}\n",
+    "### Oddball_PE {{m}}\n",
     "```{r, echo = FALSE}\n",
-    "oddball_PE[[{{nm}}]] \n",
+    "oddball_PE[[{{m}}]] \n",
     "```\n",
     "\n"
   )
 
-plots <- lapply(1:length(oddball_PE), function(nm) {knitr::knit_expand(text = template)})
+plots <- lapply(1:length(oddball_PE), function(m) {knitr::knit_expand(text = template)})
 
 ```
 `r knitr::knit(text = unlist(plots))`
@@ -246,4 +276,25 @@ plots <- lapply(1:length(oddball_DM), function(z) {knitr::knit_expand(text = tem
 
 ```
 `r knitr::knit(text = unlist(plots))`
+
+## {-}
+
+
+```{r}
+a_1 <- aov(trial.placeshield_mouse.latency ~ cond, data = cannon_data)
+summary(a_1)
+
+rt_trialnum <- lm(trial.placeshield_mouse.latency ~ total_trialnum + cond, data = cannon_data)
+summary(rt_trialnum)
+
+emmeans(rt_trialnum, "cond")
+emmeans(rt_trialnum, "blocknum")
+```
+
+
+
+## Issues Warranting Discussion {.tabset}
+
+### For Michael Discussion 9/27 {.active}
+
 
