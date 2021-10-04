@@ -28,12 +28,12 @@ reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_Structure.c
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
 
-summary <- "by_block_phase" #by_block, by_phase, by_block_phase
+summary <- "by_phase" #by_block, by_phase, by_block_phase
 
 ```
 
 
-*Clean and transform Data...*
+*Clean and transform Data. Perform basic checks....*
 ```{r}
 trim_cols <- TRUE
 reversal <- tidy_reversal(reversal_data)
@@ -47,17 +47,14 @@ check_tidy(reversal)
 # }
 
 ```
-A few critical concerns come up immediately: First, there are IDs that overlap. This was updated in the qualtrics survey, and luckily data was still distinguishable by time stamp. Second, one of those repeated subject did not complete the task fully (they bailed in the middle of the cannon task). - It's unclear why, but this means I cannot pay this participant. They also only completed 40% of the surveys, indicating to me they were not going to receive payment anyway. Third, it seems the workerIDs were not recorded in the qualtrics survey. This has now been updated and will be testing this evening. 
 
-This next block is creating all variables I cannot record directly from inquisit for whatever reason (not recording at numeric, wrong block number, etc.). I worked to create as many variables as possible within the task structure, but there are still a few missing that I have to transform offline. 
 
 ```{r, include=FALSE}
 reversal <- create_vars_reversal(reversal)
 ```
 
 
-*Only retain distinct trials...*
-
+*Generating results summary...*
 ```{r, include=FALSE}
 
 if (summary == "by_block_phase"){
@@ -91,7 +88,7 @@ obj <- reversal %>% group_by(subject, task_phase) %>%
   summarise(avg_latency = mean(as.numeric(rt)),
             reached_criterion = min(reached_criterion, na.rm=TRUE),
             NumberofTrials = n(),
-            NumberCorrect = max(cumsum(isResponse_num)),
+            NumberCorrect = max(cumsum(ResponseCorrect)),
             percent_correct = NumberCorrect/NumberofTrials) %>%
   mutate(above_threshold = ifelse(percent_correct >= .50, "Above", "Below")) 
 
@@ -135,7 +132,7 @@ sink();
 ```
 
 
-**Figure 1**. This chunk prints an overall view of reaction time. Adding an explicit instruction for participants to respond as quickly and accurately as possible did speed up the task considerably. Participant's reaction times were fast - alarmingly fast. The average reaction time was 200ms, and there were trials where some participants had reaction times of 0. This seems problematic for analysis. 
+**Figure 1**. This chunk prints an overall view of reaction time. 
 ```{r}
 
 rts <- list()
@@ -158,7 +155,7 @@ summary(reversal$rt)
 
 for (i in subjects) {
   d <- reversal %>% dplyr::filter(subject == i)
-  scatter <- ggplot(d, aes(x=trial_number, y= trial_response, color = as.factor(isResponse_num))) +
+  scatter <- ggplot(d, aes(x=trial_number, y = rightleftcorrect, color = as.factor(ResponseCorrect))) +
      geom_point() +
      geom_vline(aes(xintercept = reversal_trial, color = "Reversal Point")) +
      scale_color_manual(labels = c("Incorrect", "Correct", "Reversal Point"),
@@ -211,7 +208,6 @@ plots <- lapply(1:length(cowplot_list), function(y) {knitr::knit_expand(text = t
 
 ## {-}
 
-Overall, these graphs corroborate the idea that participants may be learning incredibly quickly. I worry that this means participants will reach a ceiling very fast, and we won't see effects of block or learning over time. Below, I run a few quick tests to see if 
 
 ```{r}
 a_1 <- aov(rt ~ task_phase, data = reversal)
@@ -247,7 +243,11 @@ SGP added an option at the top of the script to examine data by block, phase, or
 Average reaction times averaged approximately 200 ms, which is incredibly short. We should spend some time discussing the implications of this. There were also trials with 0 latency, which seems physically impossible. 
 
 ##### Issues with Task + Plans for remedying
+A few critical concerns came up immediately: First, there are IDs that overlap. This was updated in the qualtrics survey, and luckily data was still distinguishable by time stamp. Second, one of those repeated subject did not complete the task fully (they bailed in the middle of the cannon task). - It's unclear why, but this means I cannot pay this participant. They also only completed 40% of the surveys, indicating to me they were not going to receive payment anyway. Third, it seems the workerIDs were not recorded in the qualtrics survey. This has now been updated and will be testing this evening. 
 
+Overall, these graphs corroborate the idea that participants may be learning incredibly quickly. I worry that this means participants will reach a ceiling very fast, and we won't see effects of block or learning over time. Adding an explicit instruction for participants to respond as quickly and accurately as possible did speed up the task considerably. Participant's reaction times were fast - alarmingly fast. The average reaction time was 200ms, and there were trials where some participants had reaction times of 0. This seems problematic for analysis. 
+
+This next block is creating all variables I cannot record directly from inquisit for whatever reason (not recording at numeric, wrong block number, etc.). I worked to create as many variables as possible within the task structure, but there are still a few missing that I have to transform offline. 
 1. Confirm that final data is generating data that makes sense. 
 2. Generate vector of bad RTS and provide info on possible transforms.
 3. Ensure that Qualtrics is not re-using IDs (lengthen randomID string). 

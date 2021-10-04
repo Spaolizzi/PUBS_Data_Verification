@@ -48,42 +48,36 @@ create_vars_reversal <- function(data){
       filter(!block_number > 4) %>%
       ungroup() %>% select(-grp)
   } else if(data$date > "2021-08-31"){
+    df = data[,as.numeric(trial_number, reversalnumber, block_number, trial.choice.latency, trial.choice.response)]
     data<- data %>%
       group_by(subject, block_number, trial_number) %>% ##group by subject and block to prevent weirdness
-      mutate(trial_number = as.numeric(trial_number)) %>% mutate(block_number = as.numeric(block_number)) %>% mutate(reversalnumber = as.numeric(reversalnumber)) %>% ##change needed things to numeric
       arrange(subject, block_number, trial_number) %>% ## arrange in order based on grouping
-      mutate(rt = as.numeric(trial.choice.latency)) %>% ## combine latencies to create overall trial latency
-      mutate(trial_response_num = as.numeric(trial.choice.response)) %>% ## combine responses to create overall trial response
-      mutate(trial_response = ifelse(trial_response_num == 33, "left", as.character(trial_response_num))) %>% mutate(trial_response, trial_response = ifelse(trial_response_num == 36, "right", trial_response)) %>%
-      mutate(trial_response, trial_response = ifelse(trial_response == 0, "noresponse", trial_response)) %>% #change name of response variable
-      mutate(isResponse_num =ifelse(isResponseCorrect == -1, 0, isResponseCorrect)) %>% 
+      mutate(rt = trial.choice.latency) %>% ## combine latencies to create overall trial latency
+      mutate(trial_response = dplyr::recode(trial.choice.response, 
+                                     `36` = "right",
+                                     `33` = "left",
+                                     `0` = "noresponse")) %>%  #change name of response variable
       mutate(reversal_trial = ifelse(trial_number == reversalnumber , trial_number, NA)) %>% #change name of response variable
-      group_by(subject, block_number) %>% mutate(isResponse_num, numbercorrect = cumsum(isResponse_num)) %>%
-      mutate(ConsecutiveCorrect = sequence(rle(as.character(isResponse_num))$lengths)) %>%
-      ungroup() %>%
       group_by(subject, block_number, task_phase) %>%
       arrange(subject) %>%
       mutate(phase_trialnum = ifelse(task_phase == "Reversal", cumsum(task_phase == "Reversal"), cumsum(task_phase == "Acquisiton"))) %>%  ## number of trials since reversal
       mutate(numbercorrect_phase = ifelse(task_phase == "Reversal", as.numeric(cumsum(isResponseCorrect == 1)), as.numeric(cumsum(isResponseCorrect == 1)))) %>% ## number of correct choices by phase
-      mutate(ResponseCorrect = as.numeric(isResponseCorrect)) %>% ## transform to numeric
+      mutate(ResponseCorrect = ifelse(rightleftcorrect == trial_response, 1, 0)) %>% ## transform to numeric
       mutate(reached_criterion = ifelse(as.numeric(numbercorrect_phase) == 8, phase_trialnum, NA)) %>% ## did subjects get 8 consecutive answers correct
       mutate(percent_correct_phase = numbercorrect_phase/max(phase_trialnum))  %>% # percent of correct choices by phase (acquisiton or reversal)
-      #mutate(diff_numbercorrect_phase = numbercorrect_phase - lag(numbercorrect_phase)) %>%
       ungroup() %>%
       group_by(subject, block_number) %>%
-      mutate(numbercorrect = cumsum(isResponse_num)) %>%
+      mutate(numbercorrect = cumsum(ResponseCorrect)) %>%
       ungroup() %>% 
-      group_by(subject, block_number, task_phase, grp = lag(cumsum(isResponseCorrect == -1), default = 0)) %>%
-      mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == -1, 0, cumsum(isResponseCorrect))) %>%
-      mutate(ConsecutiveCorrect = ifelse(isResponseCorrect == 0, NA, ConsecutiveCorrect)) %>%
       filter(!block_number > 5) %>%
-      ungroup() %>% select(-grp)
+      ungroup()
   }
   if (trim_cols == TRUE){
     drop <- c("stimulusitem1", "trialcode", 
               "picture.correctStim.currentvalue", 
               "picture.incorrectStim.currentvalue", "correctKey", 
-              "incorrectKey", "trial.choice.percentcorrect" )
+              "incorrectKey", "trial.choice.percentcorrect",
+              "trial.choice.response", "trial.choice.latency" )
     df = data[,!(names(data) %in% drop)]
   }
 }
@@ -102,20 +96,20 @@ tidy_reversal <- function(data) {
       group_by(subject, time) %>% ## be by subject
       filter(!stimulusitem1 == "Press SPACE to continue")
     data <- as.data.table(data)
-    data <- data[ , stimulusitem := shift(stimulusitem1, 1)]
+    data <- data[ , correctstim_name:= shift(stimulusitem1, 1)]
     data <- data %>% 
       mutate_if(is.integer, as.numeric) %>%
-      filter(!stimulusitem == "+")
+      filter(!correctstim_name== "+")
   } else if (data$date > "2021-08-31"){
     data <- data %>% 
       select(!c(build, experimentName)) %>% 
       group_by(subject, time) %>% ## be by subject
       filter(!stimulusitem1 == "Press SPACE to continue")
     data <- as.data.table(data)
-    data <- data[ , stimulusitem := shift(stimulusitem1, 1)]
+    data <- data[ , correctstim_name:= shift(stimulusitem1, 1)]
     data <- data %>% 
       mutate_if(is.integer, as.numeric) %>%
-      filter(!stimulusitem == "+")
+      filter(!correctstim_name== "+")
   }
   return(data)
 }
