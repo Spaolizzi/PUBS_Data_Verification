@@ -9,8 +9,8 @@ tidy_cannon <- function(data) {
     mutate(cond = as.factor(cond))
   
   #convert non-numeric columns  to numeric
-  cols.num <- c("placementAngle","prev_placementAngle", "shield_size", "subject")
-  data[cols.num] <- sapply(data[cols.num],as.numeric)
+  cols.char <- c("cond", "condcolor")
+  data[cols.num] <- sapply(data[-cols.char],as.numeric)
   sapply(data, class)
   return(data)
 }
@@ -127,7 +127,6 @@ discrep <- function(angmu, r) {
   return(phi)
 }
 
-
 create_vars <- function(data, set_vars){
   if (trim_cols == TRUE){
     drop <- c("block.InstructionBlock.timestamp", "trial.begin_block.timestamp",
@@ -144,33 +143,59 @@ create_vars <- function(data, set_vars){
     data <- data %>% group_by(subject, cond) %>% 
       mutate(total_trialnum = ifelse(cond == "ODDBALL", n(data$changepoint), cumsum(cond == "CHANGEPOINT")))
   }
-  if("Abs_PE" %in% set_vars) {
-    data$Abs_PE <- NA
+  if("perf" %in% set_vars) {
+    data['perf'] <- NA
     for(r in 1:nrow(data)){
-      if(is.na(data$placementAngle[r])){
-        data$Abs_PE[r] <- NA
-      } else if(is.na(data$outcome[r])){
-        data$Abs_PE[r] <- NA
+      if(is.na(data$outcomeindex[r])){
+        data$perf[r] <- 0
+      } else if(is.na(data$outcomeindex[r])){
+        data$perf[r] <- 0
+      } else if(data$outcomeindex[r] == 5) {
+        data$perf[r] <- .5
       } else {
-        data$Abs_PE[r] <- discrep(data$outcome[r], data$placementAngle[r])
+        data$perf[r] <- 0
       }
     }
   }
-  if("PE_angmu" %in% set_vars){
-    data$PE_angmu <- NA
+  if("predErr" %in% set_vars) {
+    data['predErr'] <- NA
     for(r in 1:nrow(data)){
       if(is.na(data$placementAngle[r])){
-        tmp <- NA
+        data$predErr[r] <- NA
+      } else if (is.na(data$outcome[r])){
+        data$predErr[r] <- NA
       } else {
       tmp <- 
       data$PE_angmu[r] <- discrep(data$angmu[r], data$placementAngle[r])}
+        data$predErr[r] <- discrep(data$outcome[r], data$placementAngle[r])
+      }
+    }
+  }
+  if("distMean" %in% set_vars){
+    data$distMean <- NA
+    for(r in 1:nrow(data)){
+      if(is.na(data$placementAngle[r])){
+        data$distMean[r]
+      } else if(is.na(data$angmu[r])){
+        data$distMean[r]
+      } else{
+      tmp <- discrep(data$angmu[r], data$placementAngle[r])
+      data$distMean[r] <- tmp
+      }
     }
   }
   if ("catch_miss" %in% set_vars) {
     data$catch_miss <- data$outcomeindex 
     for(r in 1:nrow(data)){
       if(data$catch_miss[r] == 1){ ## check 
-        if (data$trial.placeshield_mouse.latency[r] == 2500){
+        if(is.na(data$trial.placeshield_mouse.latency[r])){
+          data$catch_miss[r] <- "noresp"
+          data$distMean[r] <- NA
+          data$predErr[r] <- NA
+          data$placementAngle[r] <- NA
+          data$trial.placeshield_mouse.latency[r] <- NA
+        }
+        else if (data$trial.placeshield_mouse.latency[r] == 2500){
           data$trial.placeshield_mouse.latency[r] <- NA
         } 
       } else if (data$catch_miss[r] == 5){
@@ -182,13 +207,13 @@ create_vars <- function(data, set_vars){
     for(r in 1:nrow(data)) {
       if(is.na(data$trial.placeshield_mouse.latency[r])){
         data$catch_miss[r] <- "noresp"
-        data$PE_angmu[r] <- NA
-        data$Abs_PE[r] <- NA
+        data$distMean[r] <- NA
+        data$predErr[r] <- NA
         data$placementAngle[r] <- NA
         data$trial.placeshield_mouse.latency[r] <- NA
+        }
       }
     }
-  }
   if ("changepoint" %in% set_vars){
     data$changepoint <- NA
     for(r in 1:nrow(data)){
@@ -199,6 +224,7 @@ create_vars <- function(data, set_vars){
   for(r in 1:nrow(data)){
     data$cond_num[r] <- ifelse(data$cond[r] == "ODDBALL", 1, 2)
   }
+
   return(data)
 }
 
@@ -206,7 +232,7 @@ create_vars <- function(data, set_vars){
 check_irreg <- function(data){
   data$Irreg <- NA
   for(r in 1:nrow(data)){
-    if(is.na(data$Abs_PE[r])) {
+    if(is.na(data$predErr[r])) {
       if(data$outcomeindex[r] != 1){
         data$Irreg[r] <- "CHECK_NA"
       } else {
@@ -217,9 +243,9 @@ check_irreg <- function(data){
     } else if(is.na(data$shield_size[r])) {
       data$Irreg[r] <- NA
     } else {
-        if (data$Abs_PE[r] <= (data$shield_size[r]/2) && data$hitmiss[r] == 0){
+        if (data$predErr[r] <= (data$shield_size[r]/2) && data$hitmiss[r] == 0){
         data$Irreg[r] <- "CHECK_MISS"
-      } else if (data$Abs_PE[r] >= 30 & data$hitmiss[r] == 1){
+      } else if (data$predErr[r] >= 30 & data$hitmiss[r] == 1){
         data$Irreg[r] <- "CHECK_HIT"
       }
     }

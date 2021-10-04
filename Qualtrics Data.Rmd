@@ -1,0 +1,84 @@
+---
+title: "PUBS_Qualtrics_Data"
+author: "Olivia Katsoudas"
+date: "9/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r read data}
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable) ##load packages
+setwd("~/Documents/PUBS_Workspace/Qualtrics Data") ## makes sure everything goes to the right place
+##source() #Pull in any functions you've that are stored elsewhere
+
+#load data
+qualtrics_data <- read.csv("~/Downloads/PUBS Study Master Flow_September 2, 2021_11.14.csv", fill = TRUE)
+```   
+
+## Including Plots
+
+Question 1: How many unique (REAL) subjects are there?
+
+```{r}
+summary(qualtrics_data)
+#qualtrics_data_working <- dplyr::select(EndDate > 2021-07-26)
+EndDatedata <- filter(qualtrics_data, grepl("2021-08", EndDate))
+length(unique(qualtrics_data$EndDate))
+EndDatedata
+RandomIDdata <- arrange(EndDatedata, "RandomID", desc(RandomID))
+RandomIDdata %>% relocate(RandomID)
+```
+
+```{r}
+cols <- colnames(EndDatedata)
+PID <- EndDatedata %>% dplyr::select(contains("PID"))
+PSWQ <- EndDatedata %>% dplyr::select(contains("PSWQ"))
+PAI <- EndDatedata %>% dplyr::select(contains("PAI"))
+BFAS <- EndDatedata %>% dplyr::select(contains("BFAS"))
+STAI <- EndDatedata %>% dplyr::select(contains("STAI"))
+measures_list <- list(PID, PSWQ, PAI, BFAS, STAI)
+names(measures_list) <- c("PID", "PSWQ", "PAI", "BFAS", "STAI")
+measures_list$PSWQ
+```
+```{r}
+# Finding out if measures match Screening Methods Doc expectations
+count(qualtrics_data, "PID")
+count(qualtrics_data, "PSWQ")
+count(qualtrics_data, "PAI")
+count(qualtrics_data, "BFAS")
+count(qualtrics_data, "STAI")
+```
+
+```{r}
+#make for in loop to display measures for each subject
+match_strings <- c("PID", "PSWQ", "PAI", "BFAS", "STAI")
+colname_data <- colnames(qualtrics_data)
+test_list <- list() #data frames
+#add demographics
+PID <- data.frame(new) #step 1`
+for (val in qualtrics_data$RandomID){
+  subj_data <- qualtrics_data %>% filter(RandomID == val)
+ for (i in 1:ncol(subj_data)){
+   if (grepl('PID', colnames(subj_data[i]))){
+      new <- subj_data[, i]                        # Create new column
+      PID[, ncol(PID) + 1] <- new                  # Append new column
+      colnames(PID)[ncol(PID)] <- paste0(as.character(colname_data[i], i))  # Rename column name
+      PID$new <- subj_data[i]
+   }
+   test_list[[val]] <- PID
+ }
+}
+```
+
+```{r}
+by_subject <- data.frame(row.names = c(qualtrics_data, contains))
+```
