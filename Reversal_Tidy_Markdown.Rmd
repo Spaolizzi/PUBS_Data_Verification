@@ -23,7 +23,7 @@ source("Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_Structure.csv", fill = TRUE) %>% group_by(subject, time)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_Pilot_Sept", fill = TRUE) %>% group_by(subject, time)
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
@@ -230,9 +230,31 @@ emmeans(rt_trialnum, "block_number")
 
 ## Issues Warranting Discussion {.tabset}
 
+### Finalized Notes - 10/5/21 {.active}
+##### Pilot Findings Summary
+On average, 8 participants made the "correct" choice approximately 65% of the time, and made at least 10 correct choices by trial 10. Both of these outcomes participants are learning the task fine in 5 blocks of 40 trials. 
+
+##### Data Visualizations and Verification
+
+SGP - it would make sense to add in a function which returns particularly bad blocks in terms of RT. 
+
+##### Reaction Time.
+
+Reaction times averaged approximately 480 ms, which seems pretty good. There were also 5 trials with 0 latency, which seems physically impossible. 
+
+##### Issues with Task + Plans for remedying
+A few critical concerns came up immediately: First, there are IDs that overlap. This was updated in the qualtrics survey, and luckily data was still distinguishable by time stamp. Second, one of those repeated subject did not complete the task fully (they bailed in the middle of the cannon task). - It's unclear why, but this means I cannot pay this participant. They also only completed 40% of the surveys, indicating to me they were not going to receive payment anyway. Third, it seems the workerIDs were not recorded in the qualtrics survey. This has now been updated and will be testing this evening. 
+
+This next block is creating all variables I cannot record directly from inquisit for whatever reason (not recording at numeric, wrong block number, etc.). I worked to create as many variables as possible within the task structure, but there are still a few missing that I have to transform offline. 
+1. Confirm that final data is generating data that makes sense. 
+2. Generate vector of bad RTS and provide info on possible transforms.
+3. Ensure that Qualtrics is not re-using IDs (lengthen randomID string). 
+4. add workerIds to embedded data so data can be matched across participants more easily. 
+
+
 ### For Michael Discussion 9/23 {.active}
 ##### Pilot Findings Summary
-11 participants made the "correct" choice approximately 85% of the time, and made at least 10 correct choices by trial 12, on average. Both of these outcomes suggest the block length can be shortened to as little as 5 blocks of 40 trials. 
+11 participants made the "correct" choice approximately 85% of the time, and made at least 10 correct choices by trial 12, on average. Both of these outcomes suggest the block length is working out well with 5 blocks of 40 trials. 
 
 ##### Data Visualizations and Verification
 

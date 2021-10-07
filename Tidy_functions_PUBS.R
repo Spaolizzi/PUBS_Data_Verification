@@ -135,7 +135,7 @@ create_vars <- function(data, set_vars){
               "picture.shield.currentitem")
     df = data[,!(names(data) %in% drop)]
   }
-   if("total_trialnum" %in% set_vars) {
+  if("total_trialnum" %in% set_vars) {
     data <- data %>% group_by(subject, cond) %>% 
       mutate(total_trialnum = ifelse(cond == "ODDBALL", cumsum(cond == "ODDBALL"), cumsum(cond == "CHANGEPOINT")))
   }
@@ -170,7 +170,6 @@ create_vars <- function(data, set_vars){
         data$predErr[r] <- discrep(data$outcome[r], data$placementAngle[r])
       }
     }
-  }
   if("distMean" %in% set_vars){
     data$distMean <- NA
     for(r in 1:nrow(data)){
@@ -224,7 +223,6 @@ create_vars <- function(data, set_vars){
   for(r in 1:nrow(data)){
     data$cond_num[r] <- ifelse(data$cond[r] == "ODDBALL", 1, 2)
   }
-
   return(data)
 }
 
