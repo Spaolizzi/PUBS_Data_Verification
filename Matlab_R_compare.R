@@ -12,8 +12,6 @@ apply(df_applysel, 2, sd)
  
 fit <- glm(anyUp ~ blockCond + modRU + modSurp + blockCondxmodSurp + hit, df_applysel, family=binomial, maxit = 1000)
 
-
-
  summary(fit)
  
  fit$coefficients
@@ -24,6 +22,7 @@ fit <- glm(anyUp ~ blockCond + modRU + modSurp + blockCondxmodSurp + hit, df_app
    setNames(c("matlab", "R")) %>% mutate(Logical = ifelse(matlab != R, FALSE, TRUE))
  wt_compare <- cbind(as.data.frame(res$STATS[15]), as.data.frame(fit$weights)) %>% 
    setNames(c("matlab", "R")) %>% mutate(Logical = ifelse(matlab != R, FALSE, TRUE))
+
 
   
  

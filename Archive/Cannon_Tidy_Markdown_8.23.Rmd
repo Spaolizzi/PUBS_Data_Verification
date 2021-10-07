@@ -1,0 +1,326 @@
+---
+title: "Cannonball Data Cleaning and Diagnostics"
+author: "Sophie Paolizzi"
+date: "8/3/2021"
+output: html_document
+---
+
+### Data Check Plans
+This markdown will be utilized for data cleaning and diagnostic checks
+
+1. Import and clean data: 
+      a. top chunk and *tidy_cannon* function
+
+2. identify variables to transform 
+      b. (*set_vars*) and create *create_vars*
+
+3. look for irregular rows (*check_irreg*):
+     a. hits that should be misses, misses that should be hits
+     b. systematically weird variation (rts that are too long, too short)
+  
+4. Create summary table and highlight problematic rows
+    a. High percentage of no_resp
+    b. low percentage of hits
+5. Check RTs and provide info on possible transforms
+    a. histograms
+    b. means
+  
+6. Graphical representation of trials 
+    a. PE by hits/misses
+    b. PE_angmu by hits/misses
+    a. PE_raw by hits/misses
+    b. distMean by hits/misses
+
+### Adaptive Learning Task (ADLT)
+In the cannon task, participants are instructed to place a shield at any point around a circle (Nassar et al., 2019). This shield covers only a portion of the 360-degree circle. The goal of the task is to infer where a cannonball might hit along the circle based on the information gathered from previous cannonball strikes and place the shield at those locations. Before each block of the task, the generative structure of the block is fully explained to the participants via written instructions and practice trials of the task. During the practice trials, participants can see where the cannon is aimed and use that information to place their shield. The cannon could theoretically hit anywhere within a 10-degree range from the center of the cannon’s muzzle. After this practice phase, participants complete the primary experiment where the cannon is removed and they must infer the cannon’s aim. The pattern of the cannon’s aim can either (1) change slightly within a specified range of the circle, with “oddball” cannonball shots striking about 14 percent of the time anywhere along the circle, or (2) remain stationary on most trials, and re-position to a random angle on approximately 14 percent of trials and remain stationary at this new angle. Participants receive explicit instructions regarding the nature of each of these blocks following the instructional phase, meaning they know whether the upcoming block will be from an oddball or change-point distribution. Participants complete 240 experimental trials in each condition, divided into 60-trial blocks, for a total of 480 trials.
+	On each trial, participants adjust the position of their shield and lock in their decision. After their choice has been made, there is a 500ms delay before the location of the cannonball is revealed for 500ms. This provides an explicit representation of how far away the center of the shield fell from the cannonball’s strike, providing visual feedback about their PE from the cannonball’s actual location (Figure 2a, ii). After participants are shown how far off they were, the outcome of the task is revealed (Figure 2a, iii). After another brief delay (1000ms), the size of the participant’s shield is revealed alongside the cannonball, showing whether they successfully blocked the projectile. While the shield is always centered on the participant’s chosen location, it varies in size such that participants are never totally certain they will block the cannonball. Thus, minimizing the PE in the feedback phase is the optimal strategy for performing well in the task. At the end of a block, participants are provided feedback in terms of how many cannonballs they caught as a percentage of the total cannonballs.
+
+
+### Pilot Data
+#### TL;DR for Data Cleaning
+This dataframe resulting from this cleaning is an example dataset. Because the cleaning code will be updated, the current cleaning code does not need to be reviewed unless you suspect anaomalies in the resulting dataframe. For any questions related to the definition of task variables, please refer to: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=1309555968. Skip to heading **Pilot Results** for information on pilot data. 
+
+It should also be noted that data for this pilot came from two, slightly different versions of the ADLT. The first version failed to record trial latency. Thus, latencies were only examined for a subset of participants. 
+
+### 1. Load Pilot Data...
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+options(knitr.duplicate.label = "allow")
+##Load Packages and source scripts
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans)
+setwd("~/github_repos/PUBS_Data_Verification/")
+source("Tidy_functions_PUBS.R")
+
+#load data
+#cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
+cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Cannonball_RAPilotOct", fill = TRUE)
+load("cannon_processing.Rdata")
+#load("Cannonball_Pilot_Cleaned_Data.Rdata")
+iq_names <- colnames(cannon_data_raw)
+
+library(dplyr)
+if ((unique(cannon_data_raw$subject == 1))){
+  cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
+  unique(cannon_data_raw$subject)
+}
+
+
+```
+
+####Setup - Conditionals
+```{r}
+plot_print <- "all" # could be "random" 
+
+```
+
+```{r, include = FALSE}
+reconcile_names <- c(NA)
+  
+for(i in 1:length(model_names)){
+  if (!is.element(model_names[i], iq_names)) {
+   reconcile_names <- append(reconcile_names, model_names[i], after = length(reconcile_names))
+  }
+}
+```
+
+
+### 1. Clean Pilot Data...
+It is important to get rid of excess trials and only retain information that will be important in analysis.
+```{r clean data, include=FALSE}
+cannon_data <- tidy_cannon(cannon_data_raw) ## transforms raw data into workable dataframe
+check_tidy(cannon_data) # found double subject
+```
+
+### 2. Transform Pilot Data...
+This chunk sets new variables and alters any old ones that need to be tidied.
+The variables created by the set_vars vector are:
+
+**predErr**. Absolute prediction error (calculated using the discrep function): the PE from outcome to shield placement
+**distMean**. Prediction error from mean of distribution to shield placement. Calculated with discrep function. 
+**catch_miss**. Codes values as factors "catch", "miss", "noresp". Used for coding and mean comparison
+**changepoint** A column that reflects the trial number of changepoints. contains trial number when changepoint occurs and NA when no changepoint has occured. 
+
+**Table 1**. *High-Level Task Performance.* This check returns block-level info about subject's performance. Participants are flagged if they did not respond to more than half of trials. 
+
+```{r create variables, include=FALSE}
+set_vars <- c("predErr", "distMean", "catch_miss", "changepoint", "perf", "total_trialnum" ) ##name variables needed for analysis, add as they become apparent 
+trim_cols <- TRUE
+cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
+
+ if (trim_cols == TRUE){
+   if (cannon_data$percentTrialsStay == .86){
+      drop <- c("percentTrialsStay","blockcode","trialcode",
+                "block.InstructionBlock.timestamp","trial.begin_block.timestamp",
+              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp","trial.showPE.timestamp"
+              ,"trial.cannon_outcome.timestamp","picture.shield.currentitem")
+   }
+    drop <- c("blockcode","trialcode",
+              "block.InstructionBlock.timestamp","trial.begin_block.timestamp",
+              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp","trial.showPE.timestamp"
+              ,"trial.cannon_outcome.timestamp","picture.shield.currentitem")
+    cannon_data <- cannon_data[,!(names(cannon_data) %in% drop)]
+  }
+```
+
+### 3. Checks for  other idiosyncracies?
+It's probably worth writing this into a function as well. I should probably do this before I implement high-level checks. Ideas for things I might need to check are:
+**Miscodes**. Misses that are actually hits, Hits that are actually misses, etc. 
+**Odd numbers of trials** Participants bailing early on the task, getting stuck somewhere, etc. 
+
+In this pilot data, we are still getting occasional hits and misses that don't make sense. I think this is due to 
+```{r check irrgular}
+cannon_data <- check_irreg(cannon_data) #check for any mistaken hits
+irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
+irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
+irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
+range <- cannon_data %>% 
+  group_by(subject, time) %>% summarise(placement_angle_min = min(cannon_data$placementAngle %>% na.omit),
+                                   placement_angle_max = max(cannon_data$placementAngle %>% na.omit),
+                               outcome_min = min(cannon_data$outcome %>% na.omit),
+                               outcome_max = max(cannon_data$outcome %>% na.omit),
+                               angleup_min = min(cannon_data$angleup %>% na.omit),
+                               angleup_max = max(cannon_data$angleup %>% na.omit),
+                               angledown_min = min(cannon_data$angledown %>% na.omit),
+                               angledown_max = max(cannon_data$angledown %>% na.omit))
+
+if(nrow(irreg_plot_hit) > 0){
+  irreg_plot_hit
+}
+if(nrow(irreg_plot_miss) > 0){
+  irreg_plot_miss
+}
+if(nrow(irreg_plot_NA) > 0){
+  irreg_plot_NA
+}
+
+```
+
+### 4. Create Table of Summary statistics {.tabset}
+```{r summary table}
+
+obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>% 
+  summarise(obscount = n(), avg_PE = mean(predErr, na.rm = TRUE),
+            dist_mean = mean(distMean,na.rm = TRUE),
+            percent_caught = max(cannonballs_caught/max(trialnum)),
+            percent_noresp = (sum(outcomeindex == 1)/max(trialnum))) %>%
+  arrange(subject,totalearnings) %>% group_by(subject) %>% mutate(taskearnings = max(totalearnings)) %>% mutate(Avg_overall_PE = mean(avg_PE, na.rm = TRUE)) %>% ungroup()
+#save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
+
+colormatrix <- ifelse(obj$percent_noresp >= .2 || obj$obscount != 60, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
+bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
+
+
+  tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
+
+cannon_earnings <- cannon_data %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_c = cents_earned)
+save(cannon_earnings, file = "Payment/Cannon.Rdata")
+tab
+```
+
+
+### 5. Reaction time data
+
+**Figure 1**. Below is a histogram of all reaction time data.This is beautiful!Tried both with and without subject 456, who seems a little problematic based on the summary statistics. Overall, happy with this!
+
+```{r RT overview, message = 'hide'}
+Hist_outliers <- ggplot(cannon_data %>% filter(!subject == 456), aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
+Mean_cleaned <- cannon_data %>% filter(!subject == 456) %>% ungroup () %>% filter(!trial.placeshield_mouse.latency == 2500) %>% summarise(mean = mean(trial.placeshield_mouse.latency)) 
+Hist_outliers; Mean_cleaned
+```
+
+### 6. Graphical Respresentations by subject
+
+I'm having some trouble with graphing this. For whatever reason, the oddball graphs are not happy with the tabset format. Everything else seems to be playing nicely, and it seems as though participants are learning across the task. 
+
+```{r}
+oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list()
+subjects <- as.character(unique(cannon_data$subject))
+subjects <- subjects[! subjects %in% c("456")]    
+
+subjects_list <- list(as.character(unique(cannon_data$subject)))
+for (i in subjects) {
+  o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL") %>% filter(!is.na(predErr))
+  if(nrow(o) > 100){
+    oddballPE <- ggplot(o, aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~blocknum)
+  oddball_PE[[i]] <- oddballPE
+    oddballDM <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~blocknum)
+   oddball_DM[[i]] <- oddballDM
+  }
+  else {oddball_PE[[i]] <- NULL}
+  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT") %>% filter(!is.na(predErr))
+  if(nrow(c) > 100){
+   
+   #tryCatch(plot(oddballDM), error=function(e) { save(oddballDM, o, i, file="problematic_data.RData"); return(NULL)})
+  changepointPE <- ggplot(c,aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~blocknum)
+  changepoint_PE[[i]] <- changepointPE
+  
+ changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
+   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
+      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
+     facet_wrap(~blocknum)
+  changepoint_DM[[i]] <- changepointDM
+  }
+}
+#changepointPE; changepointDM; #oddball_DM; oddball_PE
+
+```
+
+## Absolute PE in Oddball Block {.tabset}
+```{r}
+
+template <- c(
+    "### Oddball_PE {{m}}\n",
+    "```{r, echo = FALSE}\n",
+    "oddball_PE[[{{m}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(oddball_PE), function(m) {knitr::knit_expand(text = template)})
+```
+`r knitr::knit(text = unlist(plots))`
+
+## Absolute PE in Changepoint Block {.tabset}
+```{r}
+
+template <- c(
+    "### Changepoint_PE {{x}}\n",
+    "```{r, echo = FALSE}\n",
+    "changepoint_PE[[{{x}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(changepoint_PE), function(x) {knitr::knit_expand(text = template)})
+```
+`r knitr::knit(text = unlist(plots))`
+
+
+## Distance from Mean in Changepoint Block {.tabset}
+```{r}
+
+template <- c(
+    "### Changepoint_DM {{y}}\n",
+    "```{r, echo = FALSE}\n",
+    "changepoint_DM[[{{y}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(changepoint_DM), function(y) {knitr::knit_expand(text = template)})
+```
+`r knitr::knit(text = unlist(plots))`
+
+
+## Distance from Mean in Oddball Block {.tabset}
+```{r}
+
+template <- c(
+    "### Oddball_DM {{z}}\n",
+    "```{r, echo = FALSE}\n",
+    "oddball_DM[[{{z}}]] \n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(1:length(oddball_DM), function(z) {knitr::knit_expand(text = template)})
+
+```
+`r knitr::knit(text = unlist(plots))`
+
+## {-}
+
+```{r}
+a_1 <- aov(trial.placeshield_mouse.latency ~ cond, data = cannon_data)
+summary(a_1)
+
+rt_trialnum <- lm(trial.placeshield_mouse.latency ~ trialnum + cond, data = cannon_data)
+summary(rt_trialnum)
+
+emmeans(rt_trialnum, "cond")
+#emmeans(rt_trialnum, "blocknum")
+```
+
+
+```{r}
+# if (modeling_ext == TRUE){
+#   tidy_for_model(cannon_data)
+# }
+```
+
+
+## Issues Warranting Discussion {.tabset}
+
+### For Michael Discussion 9/27 {.active}
+
+
+

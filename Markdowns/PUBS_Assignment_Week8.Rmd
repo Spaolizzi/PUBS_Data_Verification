@@ -1,0 +1,96 @@
+---
+title: "PUBS_Assignment_Week8"
+author: "Sophie Paolizzi"
+date: "10/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+options(knitr.duplicate.label = "allow")
+##Load Packages and source scripts
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly)
+##setwd("~/github_repos/PUBS_Data_Verification/") ##Set this to be whereever you're storing the data
+qualtrics <- read_csv("Qualtrics_Data_augpilot.csv")
+```
+
+I've gone ahead and moved some of the work we've already done for data cleaning here, including code that you write and code that I simplified. This chunk of code should strip out all of the risk task data and leave you with only data from questionnaires.
+
+```{r cars}
+qualtrics <- qualtrics %>% dplyr::filter(!StartDate < "2021-08-30") %>% dplyr::filter(Progress == "100")
+qualtrics <- qualtrics %>% select(c(1:230, 779)) #rough way of doing this but it works
+options <- "by_questionnaire" #by_subject
+```
+
+TASK 1: Estimated time, 60 minutes. 
+Next, I'd like to have you go through the whole data frame by eye, and find the names of all the columns that seem to represent the demographics variables. At minimum, you should have columns for age, gender identity, and ethnicity, but there may be more columns as well. It might be helpful to use the colnames function to get started. 
+
+Copy and paste the names of the demographics columns into the empty vector below. 
+```{r}
+colnames(qualtrics)
+global_vars <- ("RandomID") #copy names of all demographic variables in here.
+
+```
+
+TASK 2: Estimated time, 30 minutes 
+
+Below, I created a table that reports out the number of questions recorded for each questionnaire. You started this work last week. you should be able to find strategies for each of these tasks with a quick search in Stack. 
+
+1. Please update the vector of the expected values for each of these questionnaires and the demographics. 
+
+
+```{r pressure, echo=FALSE}
+if (options == "by_questionnaire"){
+  PID <- qualtrics %>% dplyr::select(contains("PID"))
+  PSWQ <- qualtrics %>% dplyr::select(contains("PSWQ"))
+  PAI <- qualtrics %>% dplyr::select(contains("PAI"))
+  BFAS <- qualtrics %>% dplyr::select(contains("BFAS"))
+  STAI <- qualtrics %>% dplyr::select(contains("STAI"))
+  global_variables <- qualtrics[,(names(qualtrics) %in% global_vars)]
+  measures_list <- list(PID, PSWQ, PAI, BFAS, STAI, global_variables)
+  expected_vals <- c(109, 16, 24, 20, 40, 1) #PLEASE UPDATE THIS VECTOR WITH YOUR EXPECTED COUNT
+  names(measures_list) <- c("PID", "PSWQ", "PAI", "BFAS", "STAI", "GLOBAL")
+  measures_list
+}
+```
+
+2. Create a logical column at the end of the summary_df dataframe (code will probalby be something like if Freq == expected_length, TRUE)
+
+```{r}
+  summary_df <- as.data.frame(summary(measures_list))
+  summary_df <- summary_df[1:6, c(1,3)]
+  summary_df$Expected_Vals <- expected_vals 
+  #rename Var1 column
+  #Please create a logical column in summary_df and put the code here (setequal function)
+```
+
+TASK 3: Estimated time, 2 hours. 
+
+Your next task will not be in R, but rather in google sheets. I'm going to have you create a codebook for each of the questionnaires, which you will then use in task 4 to recode any messed-up variables in the dataset. 
+
+I've gone ahead and done the PSWQ for you. You can see the codes for that at this link: https://docs.google.com/spreadsheets/d/1V2UD28C_zAfH90BnNO3si6c0-qDUDFbHoU44rfdEt4I/edit#gid=762114925 
+
+You can find the scoring conventions for each of the questionnaires in this Scoring guides folder I've created for you on OneDrive: https://adminliveunc-my.sharepoint.com/:f:/g/personal/sophiep_ad_unc_edu/EltseLL7YiFNu6OYX2xN2ZcBI0iFtwLrAxbjwoHMarAJ4g?email=livkats%40live.unc.edu&e=4KO8Os
+
+The only one that won't be in there is the BFAS, which you can find at this link:https://ipip.ori.org/BFASKeys.htm
+
+
+TASK 4: Estimated time, 3 hours.
+
+After you've created these code books, **I'd like you to go back to the qualtrics survey and check that all of the reverse-coded items were actually reverse coded in the qualtrics survey. If they are not, please change the settings in qualtrics so they are reverse-coded.** I will walk you through an example of  how to do this in our meeting Monday.
+
+To go to scoring, hit survey options > scoring
+
+TASK 5: Estimated time, 3 hours. 
+
+Lastly, I'd like to see you try to apply the coding schemes you develop above to the data! As you can probably see looking through the data frames, many of the responses are not consistently scored as numeric or characters. Also, you may find after completing task #4 that some columns that should have been reverse-scored are not. Ideally, we will have all of the responses coded as numeric, to make analysis easier. 
+
+I would spend some time reviewing the help pages for the dplyr::recode and as.numeric functions before attempting this part of the task. I'm thinking it is possible this task will spill over into next week!
+
+```{r}
+
+
+```
+
+
