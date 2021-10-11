@@ -48,17 +48,14 @@ knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans)
-main_dir <- "~/github_repos/PUBS_Data_Verification/"
-setwd("~/github_repos/PUBS_Data_Verification/")
-source("helper_scripts/Tidy_functions_PUBS.R")
+source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS.R")
 
 #load data
 #cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
-cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Cannonball_RAPilotOct", fill = TRUE)
-load("Markdowns/cannon_processing.Rdata")
+cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/Cannonball_RAPilotOct.csv", fill = TRUE)
+load("cannon_processing.Rdata")
 #load("Cannonball_Pilot_Cleaned_Data.Rdata")
 iq_names <- colnames(cannon_data_raw)
-
 library(dplyr)
 if ((unique(cannon_data_raw$subject == 1))){
   cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
@@ -73,17 +70,6 @@ if ((unique(cannon_data_raw$subject == 1))){
 plot_print <- "all" # could be "random" 
 
 ```
-
-```{r, include = FALSE}
-reconcile_names <- c(NA)
-  
-for(i in 1:length(model_names)){
-  if (!is.element(model_names[i], iq_names)) {
-   reconcile_names <- append(reconcile_names, model_names[i], after = length(reconcile_names))
-  }
-}
-```
-
 
 ### 1. Clean Pilot Data...
 It is important to get rid of excess trials and only retain information that will be important in analysis.
@@ -103,10 +89,11 @@ The variables created by the set_vars vector are:
 
 **Table 1**. *High-Level Task Performance.* This check returns block-level info about subject's performance. Participants are flagged if they did not respond to more than half of trials. 
 
-```{r create variables, include=FALSE}
+```{r create variables, warning=FALSE}
 set_vars <- c("predErr", "distMean", "catch_miss", "changepoint", "perf", "total_trialnum" ) ##name variables needed for analysis, add as they become apparent 
 trim_cols <- TRUE
 cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
+cannon_data <- cannon_data %>% ungroup() %>% group_by(subject) %>% mutate(cBal = ifelse(cond[1] == "CHANGEPOINT", 2, 1))
 
  if (trim_cols == TRUE){
    if (cannon_data$percentTrialsStay == .86){
@@ -117,10 +104,14 @@ cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
    }
     drop <- c("blockcode","trialcode",
               "block.InstructionBlock.timestamp","trial.begin_block.timestamp",
-              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp","trial.showPE.timestamp"
+              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp"
+              , "trial.showPE.timestamp"
               ,"trial.cannon_outcome.timestamp","picture.shield.currentitem")
     cannon_data <- cannon_data[,!(names(cannon_data) %in% drop)]
-  }
+ }
+
+cleaned_names <- colnames(cannon_data)
+save(model_names, iq_names, cleaned_names, file = "cannon_processing.Rdata")
 ```
 
 ### 3. Checks for  other idiosyncracies?
@@ -168,10 +159,9 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
 #save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
 colormatrix <- ifelse(obj$percent_noresp >= .2 || obj$obscount != 60, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
-bad_blocks <- obj %>% dplyr::filter(percent_noresp >= .2)
+bad_blocks <- obj %>% dplyr::filter( percent_noresp >= .2)
 
-
-  tab <- obj %>% flextable() %>% bg(j = 1:10, bg=colormatrix)
+tab <- obj %>% flextable() %>% flextable::bg(j = 1:ncol(obj), bg=colormatrix)
 
 cannon_earnings <- cannon_data %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_c = cents_earned)
 save(cannon_earnings, file = "~/github_repos/PUBS_Data_Verification/Payment/Cannon.Rdata")
@@ -183,7 +173,7 @@ tab
 
 **Figure 1**. Below is a histogram of all reaction time data.This is beautiful!Tried both with and without subject 456, who seems a little problematic based on the summary statistics. Overall, happy with this!
 
-```{r RT overview, message = 'hide'}
+```{r RT overview,warning=FALSE}
 Hist_outliers <- ggplot(cannon_data %>% filter(!subject == 456), aes(x=trial.placeshield_mouse.latency)) + geom_histogram()
 Mean_cleaned <- cannon_data %>% filter(!subject == 456) %>% ungroup () %>% filter(!trial.placeshield_mouse.latency == 2500) %>% summarise(mean = mean(trial.placeshield_mouse.latency)) 
 Hist_outliers; Mean_cleaned
@@ -193,119 +183,96 @@ Hist_outliers; Mean_cleaned
 
 I'm having some trouble with graphing this. For whatever reason, the oddball graphs are not happy with the tabset format. Everything else seems to be playing nicely, and it seems as though participants are learning across the task. 
 
-```{r}
-oddball_PE <- list();changepoint_PE <- list();oddball_DM <- list(); changepoint_DM <- list()
-subjects <- as.character(unique(cannon_data$subject))
-subjects <- subjects[! subjects %in% c("456")]    
+```{r, warning=FALSE}
+cowplotcp <- list();cowplotodd <- list()
+subjects <- sort(unique(cannon_data$subject))
+subjects <- as.character(subjects)
 
 subjects_list <- list(as.character(unique(cannon_data$subject)))
 for (i in subjects) {
   o <- cannon_data %>% dplyr::filter(subject == i & cond == "ODDBALL") %>% filter(!is.na(predErr))
-  if(nrow(o) > 100){
-    oddballPE <- ggplot(o, aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  +
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~blocknum)
-  oddball_PE[[i]] <- oddballPE
-    oddballDM <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) +
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~blocknum)
-   oddball_DM[[i]] <- oddballDM
-  }
-  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT") %>% filter(!is.na(predErr))
-  if(nrow(c) > 100){
-  changepointPE <- ggplot(c,aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
-     geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
-     xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~blocknum)
-  changepoint_PE[[i]] <- changepointPE
-  
- changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
-   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5)]))  +
-      xlab("Trial Number") + ylab("Response Type") + ggtitle(i) +
-     facet_wrap(~blocknum)
-  changepoint_DM[[i]] <- changepointDM
-  }
+ cowplotodd[[i]] <- local({
+        i <- i
+         oddballPE <- ggplot(o, aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) + xlab("Trial Number") + ylab("Response Type") + ggtitle("Raw Prediction Error") + ylab("Size Of Prediction Error") + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
+  #oddball_PE[[i]] <- oddballPE
+    get_legendo <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))
+ legendo <- get_legend(get_legendo)
+ oddballDM <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
+     geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())  + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
+  #changepoint_DM[[i]] <- changepointDM
+   #oddball_DM[[i]] <- oddballDM
+i <- cowplot::plot_grid(oddballPE, oddballDM, legendo, ncol = 3, rel_widths = c(2.5,2.1,1))})
 }
-#changepoint_PE; changepoint_DM;oddball_DM; oddball_PE; changepoint_PE; 
+
+for (i in subjects){
+  c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT") %>% filter(!is.na(predErr))
+  cowplotcp[[i]] <- local({
+        i <- i
+  changepointPE <- ggplot(c,aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
+     xlab("Trial Number") + ylab("Response Type") + ggtitle("Raw Prediction Error") + ylab("Size Of Prediction Error") + 
+    theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
+  #changepoint_PE[[i]] <- changepointPE
+  
+ changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)])) + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") +
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) +  
+   theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)  
+ 
+ get_legendc <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))
+  #changepoint_DM[[i]] <- changepointDM
+ legendc <- get_legend(get_legendc)
+ i <- cowplot::plot_grid(changepointPE, changepointDM, legendc, ncol = 3, rel_widths = c(2.5,2.1,1))
+  })
+}
 
 ```
-## Distance from Mean in Oddball Block {.tabset}
-```{r}
-template <- c(
-    "### Oddball_DM {{w}}\n",
+
+
+## Changepoint Block {.tabset}
+```{r, warning=FALSE}
+temp_cp <- c(
+    "### Subject {{nm}}\n",
     "```{r, echo = FALSE}\n",
-    "oddball_DM[[{{w}}]] \n",
+    "cowplotcp[[{{nm}}]] \n",
     "```\n",
     "\n"
   )
 
-plots <- lapply(1:length(oddball_DM), function(w) {knitr::knit_expand(text = template)})
-```
-`r knitr::knit(text = unlist(plots))`
-
-## Absolute PE in Oddball Block {.tabset}
-```{r}
-
-template <- c(
-    "### Oddball_PE {{m}}\n",
-    "```{r, echo = FALSE}\n",
-    "oddball_PE[[{{m}}]] \n",
-    "```\n",
-    "\n"
-  )
-
-plots <- lapply(1:length(oddball_PE), function(m) {knitr::knit_expand(text = template)})
-```
-`r knitr::knit(text = unlist(plots))`
-
-
-## Distance from Mean in Changepoint Block {.tabset}
-```{r}
-
-template <- c(
-    "### Changepoint_DM {{y}}\n",
-    "```{r, echo = FALSE}\n",
-    "changepoint_DM[[{{y}}]] \n",
-    "```\n",
-    "\n"
-  )
-
-plots <- lapply(1:length(changepoint_DM), function(y) {knitr::knit_expand(text = template)})
+plots <- lapply(1:length(cowplotcp), function(nm) {knitr::knit_expand(text = temp_cp)})
 ```
 `r knitr::knit(text = unlist(plots))`
 
-## Absolute PE in Changepoint Block {.tabset}
-```{r}
 
+## Oddball Block {.tabset}
+```{r, warning=FALSE}
 template <- c(
-    "### Changepoint_PE {{x}}\n",
+    "### Subject {{w}}\n",
     "```{r, echo = FALSE}\n",
-    "changepoint_PE[[{{x}}]] \n",
+    "cowplotodd[[{{w}}]] \n",
     "```\n",
     "\n"
   )
 
-plots <- lapply(1:length(changepoint_PE), function(x) {knitr::knit_expand(text = template)})
+plots <- lapply(1:length(cowplotodd), function(w) {knitr::knit_expand(text = template)})
 ```
 `r knitr::knit(text = unlist(plots))`
 
 ## {-}
 
-```{r}
+```{r, warning=FALSE}
 a_1 <- aov(trial.placeshield_mouse.latency ~ cond, data = cannon_data)
 summary(a_1)
 
-rt_trialnum <- lm(trial.placeshield_mouse.latency ~ trialnum + cond, data = cannon_data)
+rt_trialnum <- lm(trial.placeshield_mouse.latency ~ trialnum + cond  + blocknum + cBal, data = cannon_data)
 summary(rt_trialnum)
 
 emmeans(rt_trialnum, "cond")
-#emmeans(rt_trialnum, "blocknum")
+#emmeans(rt_trialnum, as.character("blocknum"))
 ```
 
 
-```{r}
+```{r, message=FALSE}
 # if (modeling_ext == TRUE){
 #   tidy_for_model(cannon_data)
 # }

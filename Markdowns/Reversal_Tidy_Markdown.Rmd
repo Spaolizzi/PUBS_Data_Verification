@@ -14,16 +14,16 @@ The current cleaning code is housed in the Tidy_functions_PUBS script: refer to 
  *Load Pilot Data...*
 
 ```{r setup, message=FALSE} 
-knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans, data.table)
 setwd("~/github_repos/PUBS_Data_Verification/")
-source("Tidy_functions_PUBS.R")
+source("helper_scripts/Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/PUBS_Pilot_Sept", fill = TRUE) %>% group_by(subject, time)
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/RA_Reversal_Pilot_10.1.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
@@ -110,15 +110,13 @@ In summary, all participants learned the task remarkably quickly. They all clear
 
 ```{r,echo=FALSE}
 
-
 subjects <- as.character(unique(reversal$subject)); cowplot_list <- list(); plot_subjects <- list()
 colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
 
 tab <- obj %>% flextable() %>% flextable::bg(j = 1:ncol(obj), bg=colormatrix)
 
-
 reversal_earnings <- reversal %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_r = cents_earned)
-save(reversal_earnings, file = "Payment/Reversal.Rdata")
+save(reversal_earnings, file = "~/github_repos/PUBS_Data_Verification/Payment/Reversal.Rdata")
 
 sink("/dev/null")
 tab
@@ -141,8 +139,6 @@ for (i in subjects) {
 rt_hist <- ggplot(s, aes(rt), stat = "bin") + geom_histogram() + ggtitle(i)
 rts[[i]] <- rt_hist
 }
-
-
 
 rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(rt), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
 rts[]
@@ -180,8 +176,9 @@ for (i in subjects) {
   }
 
  plot_subjects[[i]] <- list(scatter, hist) 
- cowplot <- cowplot::plot_grid(scatter, hist, nrow = 2)
- cowplot_list[[i]] <- cowplot
+cowplot_list[[i]] <- local({
+        i <- cowplot <- cowplot::plot_grid(scatter, hist, nrow = 2)
+})
 }
 ```
 
@@ -190,7 +187,7 @@ for (i in subjects) {
 ```{r}
 
 template <- c(
-    "### cowplot_list {{y}}\n",
+    "### Subject {{y}}\n",
     "```{r, echo = FALSE}\n",
     "cowplot_list[[{{y}}]] \n",
     "```\n",
@@ -240,16 +237,16 @@ SGP - it would make sense to add in a function which returns particularly bad bl
 
 ##### Reaction Time.
 
-Reaction times averaged approximately 480 ms, which seems pretty good. There were also 5 trials with 0 latency, which seems physically impossible. 
+Reaction times averaged approximately 480 ms, which seems pretty good. There were also 5 trials with 0 latency, but it seems like this will inevitably be a feature of the task... 
 
-##### Issues with Task + Plans for remedying
-A few critical concerns came up immediately: First, there are IDs that overlap. This was updated in the qualtrics survey, and luckily data was still distinguishable by time stamp. Second, one of those repeated subject did not complete the task fully (they bailed in the middle of the cannon task). - It's unclear why, but this means I cannot pay this participant. They also only completed 40% of the surveys, indicating to me they were not going to receive payment anyway. Third, it seems the workerIDs were not recorded in the qualtrics survey. This has now been updated and will be testing this evening. 
+##### Issues with Task
 
-This next block is creating all variables I cannot record directly from inquisit for whatever reason (not recording at numeric, wrong block number, etc.). I worked to create as many variables as possible within the task structure, but there are still a few missing that I have to transform offline. 
-1. Confirm that final data is generating data that makes sense. 
-2. Generate vector of bad RTS and provide info on possible transforms.
-3. Ensure that Qualtrics is not re-using IDs (lengthen randomID string). 
-4. add workerIds to embedded data so data can be matched across participants more easily. 
+Issues for 9/23 appear addressed. Data is slated for collection the week of 10/11. Review Complete.
+
+1. ~~Confirm that final data is generating data that makes sense.~~ 
+2. Generate vector of bad RTS and provide info on possible transforms. (this is complete)
+3. ~~Ensure that Qualtrics is not re-using IDs (lengthen randomID string).~~ 
+4. ~~add workerIds to embedded data so data can be matched across participants more easily.~~ 
 
 
 ### For Michael Discussion 9/23 {.active}

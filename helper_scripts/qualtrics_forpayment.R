@@ -6,13 +6,13 @@ earnings <- earnings %>% mutate(total = (centsearned_r + centsearned_c)/100)
 
        
        
-setwd("~/github_repos/PUBS_Data_Verification/")
-qualtrics <- read_csv("Qualtrics_Data_augpilot.csv")
+setwd("~/github_repos/PUBS_Data_Verification/sample_data/")
+qualtrics <- read_csv("Qualtrics_Data_OctPilot.csv")
 
-qualtrics <- qualtrics %>% dplyr::filter(!StartDate < "2021-08-30") %>% dplyr::filter(Progress == "100")
-qualtrics<- qualtrics %>%  mutate(Duration_mins = as.numeric(`Duration (in seconds)`)/60)
+qualtrics <- qualtrics %>% dplyr::filter(!StartDate < "2021-09-27") %>% dplyr::filter(Progress == "100")
+qualtrics<- qureversal_altrics %>%  mutate(Duration_mins = as.numeric(`Duration (in seconds)`)/60)
 
-qualtrics <- arrange(qualtrics,Duration_minss)
+qualtrics <- arrange(qualtrics,Duration_mins)
 qualtrics_payment <- qualtrics %>% arrange(qualtrics,Duration_mins) %>% select(Duration_mins, RandomID, Progress)
 View(qualtrics_payment)
 qualtrics_randomdraw <- qualtrics %>% dplyr::select(., contains("_select")) %>% select(!contains("Click")) %>% select(!contains("submit"))
@@ -30,9 +30,9 @@ for(i in 1:nrow(qualtrics)){
   qualtrics$payout_colname[i] <- colnames(qualtrics_randomdraw[coln]) 
 }
 
-qualtrics$payout_resp <- unlist(qualtrics_randomdraw[i, qualtrics$payout_col])
+qualtrics$payout_resp <- unlist(qualtrics_randomdraw[i, qualtrics$payout_colnum])
 
-for_payment <- qualtrics %>% select(RandomID, payout_colnum,payout_colname, payout_resp, Duration_minss)
+for_payment <- qualtrics %>% select(RandomID, payout_colnum,payout_colname, payout_resp, Duration_mins)
 
 
 for_payment <- for_payment %>% separate(payout_colname, into = c("Likelihood", "Amount"), sep = "_", extra = "drop") %>% 
