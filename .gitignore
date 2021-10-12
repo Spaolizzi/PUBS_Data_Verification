@@ -2,3 +2,4 @@
 .Renviron
 data/*
 Data/*
+*.DS_Store*
