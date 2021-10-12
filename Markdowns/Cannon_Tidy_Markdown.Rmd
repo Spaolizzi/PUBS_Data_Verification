@@ -273,9 +273,13 @@ emmeans(rt_trialnum, "cond")
 
 
 ```{r, message=FALSE}
+#maybe give this an option? 
+
+save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc.RData")
 # if (modeling_ext == TRUE){
 #   tidy_for_model(cannon_data)
 # }
+
 ```
 
 
