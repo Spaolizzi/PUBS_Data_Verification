@@ -1,0 +1,60 @@
+---
+title: "Cannon_Regression_Markdown"
+author: "Sophie Paolizzi"
+date: "10/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+options(knitr.duplicate.label = "allow")
+##Load Packages and source scripts
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans, lme4)
+source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS.R")
+#source("~/github_repos/PUBS_Data_Verification/helper_scripts/in_development/modelingformat_functions_PUBS.R")
+
+data_dir <- "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_formodeling/untransformed/"
+setwd("~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_formodeling/untransformed/")
+
+
+```
+
+Load Data
+```{r}
+#create a list of the files from your target directory
+file_list <- list.files(path=data_dir)
+
+#initiate a blank data frame, each iteration of the loop will append the data from the given file to this variable
+dataset <- data.frame()
+
+#had to specify columns to get rid of the total column
+for (i in 1:length(file_list)){
+  temp_data <- read_csv(file_list[i]) #each file will be read in, specify which columns you need read in to avoid any errors
+  temp_data$Class <- sapply(strsplit(gsub("csv", "", file_list[i]), "_"), function(x){x[2]}) #clean the data as needed, in this case I am creating a new column that indicates which file each row of data came from
+  dataset <- rbind(dataset, temp_data) #for each iteration, bind the new data to the building dataset
+}
+```
+
+
+
+```{r}
+
+rt_trialnum <- lmer(predT ~ trialnum + cond  + blocknum + cBal, data = pilot)
+summary(rt_trialnum)
+
+```
+
+
+
+
+```{r}
+
+
+
+```
+
+
+
+
+

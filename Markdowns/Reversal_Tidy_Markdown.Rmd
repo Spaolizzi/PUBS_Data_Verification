@@ -23,7 +23,7 @@ source("helper_scripts/Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/RA_Reversal_Pilot_10.1.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/data/PUBS_Batch1_R_Samp.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)

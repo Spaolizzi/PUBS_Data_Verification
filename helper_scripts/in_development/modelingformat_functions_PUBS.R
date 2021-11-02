@@ -37,17 +37,19 @@ cannon_data <- left_join(cannon_data, Demographics, by = "subject")
                           pred = placementAngle,
                           accPerf	= totalearnings,
                           trial = trialnum)
-cannon_data <- cannon_data %>% group_by(subject, mutate(cannon_data,
-                      UPMin = 0,
-                      UPNorm = 0
-                      UPPlus = 0,
-                      catchTrial= 0,
-                      
-                )
+  cannon_data <- cannon_data %>% group_by(ID) %>% mutate(
+                          oddballProb = abs(percentTrialsStay -1),
+                          predErrMin  = min(predErr),
+                          predErrNorm = mean(predErr),
+                          predErrPlus  = max(predErr))
   cannon_data <- mutate(cannon_data,
-                        oddballProb = abs(percentTrialsStay -1),
                         actRew = hit*.5,
                         rew = .5,
+                        UPMin = 0,
+                        UPNorm = 0,
+                        UPPlus = 0,
+                        catchTrial= 0,
+                        sigma = 18.775,
                         oddBall = ifelse(cond == "ODDBALL", StaySwitch, NA),
                         cp = ifelse(cond == "CHANGEPOINT", StaySwitch, NA))
 
@@ -59,4 +61,37 @@ for(i in 1:length(model_names)){
     reconcile_updated_names <- append(reconcile_updated_names, model_names[i], after = length(reconcile_updated_names))
   }
 }
+
+cannon_data <- cannon_data[, model_names]
+bad_rows <- c()
+for (i in 1:nrow(cannon_data)){
+  if (is.na(cannon_data$predErr[i])){
+    bad_rows <- append(bad_rows, i)
+  }
+}
+
+cannon_data <- cannon_data[-bad_rows, ]
+
+cannon_data 
+
+
+cannon_data_split <- as.list(split(cannon_data, cannon_data$ID))
+
+
+CDS_names <- as.numeric(names(cannon_data_split))
+
+
+ for(i in CDS_names){
+#   filename <- paste0("~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_formodeling/", 
+#                                paste0("Cannon_",CDS_names[c(i)], ".mat"))
+#   writeMat(filename, )
+#   data <- readMat(filename)
+  write_csv(cannon_data_split[[i]],
+            file.path("~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_formodeling",
+                      paste0("Cannon_",CDS_names[c(i)], ".csv")))
+}
+
+
+
+samp <- read_csv("~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_formodeling/Cannon_1.csv")
 

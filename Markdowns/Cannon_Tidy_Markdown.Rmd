@@ -42,7 +42,7 @@ This dataframe resulting from this cleaning is an example dataset. Because the c
 
 It should also be noted that data for this pilot came from two, slightly different versions of the ADLT. The first version failed to record trial latency. Thus, latencies were only examined for a subset of participants. 
 
-### 1. Load Pilot Data...
+### Source Directories
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
@@ -50,33 +50,66 @@ options(knitr.duplicate.label = "allow")
 pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans)
 source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS.R")
 
-#load data
-#cannon_data_8.16 <- data.table::fread("pubs_pilot_cannon_task_finaldraft_8.16.20_raw_21_08_17.csv", fill = TRUE)
-cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/Cannonball_RAPilotOct.csv", fill = TRUE)
-load("cannon_processing.Rdata")
-#load("Cannonball_Pilot_Cleaned_Data.Rdata")
-iq_names <- colnames(cannon_data_raw)
-library(dplyr)
-if ((unique(cannon_data_raw$subject == 1))){
-  cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
-  unique(cannon_data_raw$subject)
-}
+```
 
+####Setup - Choose options
+```{r}
+print_plots <- "cp" # could be "oddball" 
+get_model_params <- TRUE
+pilot <- FALSE #if pilot data, will read August Pilot Data
 
 ```
 
-####Setup - Conditionals
+1. Load Pilot Data...
 ```{r}
-plot_print <- "all" # could be "random" 
+#load data
+
+if (pilot == FALSE){
+  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C_Samp.csv", fill = TRUE) %>% 
+  dplyr::filter(subject != 1) %>% 
+  dplyr::filter(subject != "subject") 
+} else{
+  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C_Samp.csv", fill = TRUE) %>% 
+  dplyr::filter(subject == 1) %>% 
+  dplyr::filter(subject != "subject") 
+}
+
+#FILTER OUT TIMES BEFORE OFFICIAL DATA COLLECTION
+load("cannon_processing.Rdata")
+#load("Cannonball_Pilot_Cleaned_Data.Rdata")
+iq_names <- colnames(cannon_data_raw)
+
+# #If it's a pilot without numbers, do this
+# if (length(unique(cannon_data_raw$subject == 1))){
+#   cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
+#   unique(cannon_data_raw$subject)
+# }
+
 
 ```
 
 ### 1. Clean Pilot Data...
 It is important to get rid of excess trials and only retain information that will be important in analysis.
-```{r clean data, include=FALSE}
+```{r clean data, include = FALSE}
 cannon_data <- tidy_cannon(cannon_data_raw) ## transforms raw data into workable dataframe
 check_tidy(cannon_data) # found double subject
+
+#couble-check we aren't losing subject to the cleaning proccess
+Raw <- unique(cannon_data$subject)
+Chopped <- as.numeric(unique(cannon_data_raw$subject))
+Step1 <- cbind(Raw,Chopped)
 ```
+
+
+```{r}
+
+if (length(Raw) == length(Chopped)){
+  print("Data Successfully Chopped")
+} else {
+  print("Data Not Chopped")
+}
+```
+
 
 ### 2. Transform Pilot Data...
 This chunk sets new variables and alters any old ones that need to be tidied.
@@ -122,9 +155,10 @@ It's probably worth writing this into a function as well. I should probably do t
 In this pilot data, we are still getting occasional hits and misses that don't make sense. I think this is due to 
 ```{r check irrgular}
 cannon_data <- check_irreg(cannon_data) #check for any mistaken hits
-irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
-irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
-irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shield_size)
+irreg_plot_hit <- cannon_data %>% filter(grepl("CHECK_HIT", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shieldsize)
+irreg_plot_miss <- cannon_data %>% filter(grepl("CHECK_MISS", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, trial.placeshield_mouse.latency, angmu, placementAngle, prev_placementAngle, outcome, predErr, picture.shield.stimulusonset, angleup, angledown, shield_size, shieldsize) %>% filter(!(placementAngle == prev_placementAngle)
+                                                                                                                                                                                                                                                                                                        )
+irreg_plot_NA <- cannon_data %>% filter(grepl("CHECK_NA", Irreg)) %>% select(subject, cond, blocknum, trialnum, catch_miss, angmu, placementAngle, outcome, predErr, angleup, angledown, shieldsize)
 range <- cannon_data %>% 
   group_by(subject, time) %>% summarise(placement_angle_min = min(cannon_data$placementAngle %>% na.omit),
                                    placement_angle_max = max(cannon_data$placementAngle %>% na.omit),
@@ -195,43 +229,51 @@ for (i in subjects) {
         i <- i
          oddballPE <- ggplot(o, aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) + xlab("Trial Number") + ylab("Response Type") + ggtitle("Raw Prediction Error") + ylab("Size Of Prediction Error") + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
-  #oddball_PE[[i]] <- oddballPE
-    get_legendo <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
+
+get_legendo <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))
  legendo <- get_legend(get_legendo)
+ 
  oddballDM <- ggplot(o, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() +
      geom_vline(aes(xintercept = changepoint, color = "Oddball")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))  + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())  + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
-  #changepoint_DM[[i]] <- changepointDM
-   #oddball_DM[[i]] <- oddballDM
+
 i <- cowplot::plot_grid(oddballPE, oddballDM, legendo, ncol = 3, rel_widths = c(2.5,2.1,1))})
 }
+```
 
+```{r, warning=FALSE}
 for (i in subjects){
   c <- cannon_data %>% dplyr::filter(subject == i & cond == "CHANGEPOINT") %>% filter(!is.na(predErr))
   cowplotcp[[i]] <- local({
         i <- i
-  changepointPE <- ggplot(c,aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))  +
-     xlab("Trial Number") + ylab("Response Type") + ggtitle("Raw Prediction Error") + ylab("Size Of Prediction Error") + 
-    theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
-  #changepoint_PE[[i]] <- changepointPE
-  
- changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)])) + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") +
-  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) +  
-   theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)  
+        changepointPE <- ggplot(c,aes(x=trialnum, y=predErr, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(2,4,5)])) + xlab("Trial Number") + ylab("Response Type") + ggtitle("Raw Prediction Error") + ylab("Size Of Prediction Error") + theme(legend.position = "non7e") + facet_wrap(~blocknum, ncol = 1)
  
- get_legendc <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,2,5,1)]))
-  #changepoint_DM[[i]] <- changepointDM
+get_legendc <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)]))
  legendc <- get_legend(get_legendc)
- i <- cowplot::plot_grid(changepointPE, changepointDM, legendc, ncol = 3, rel_widths = c(2.5,2.1,1))
-  })
+ #c(5,4,2), 2,5,4, 4,5,2, 2,4,5
+ changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + 
+   geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())  + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
+ 
+i <- cowplot::plot_grid(changepointPE, changepointPE, legendc, ncol = 3, rel_widths = c(2.5,2.1,1))})
 }
+##print based on the block that came first (use cBal)
+# 
+# 
+# cowplotall <- list()
+# for (i in subjects) {
+#   cowplotall[[i]] <- local({
+#         i <- i
+#         cowplot::plot_grid(cowplotcp[[i]], cowplotodd[[i]], nrow = 2)})
+# }
 
 ```
 
 
-## Changepoint Block {.tabset}
+## Graphing of Block {.tabset}
 ```{r, warning=FALSE}
-temp_cp <- c(
+
+if(print_plots == "cp") {
+  temp_cp <- c(
     "### Subject {{nm}}\n",
     "```{r, echo = FALSE}\n",
     "cowplotcp[[{{nm}}]] \n",
@@ -240,21 +282,19 @@ temp_cp <- c(
   )
 
 plots <- lapply(1:length(cowplotcp), function(nm) {knitr::knit_expand(text = temp_cp)})
-```
-`r knitr::knit(text = unlist(plots))`
+} else if (print_plots == "ob"){
 
-
-## Oddball Block {.tabset}
-```{r, warning=FALSE}
 template <- c(
     "### Subject {{w}}\n",
     "```{r, echo = FALSE}\n",
     "cowplotodd[[{{w}}]] \n",
     "```\n",
     "\n"
+    
   )
-
 plots <- lapply(1:length(cowplotodd), function(w) {knitr::knit_expand(text = template)})
+}
+
 ```
 `r knitr::knit(text = unlist(plots))`
 
@@ -276,11 +316,18 @@ emmeans(rt_trialnum, "cond")
 #maybe give this an option? 
 
 save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc.RData")
-# if (modeling_ext == TRUE){
-#   tidy_for_model(cannon_data)
-# }
+ # if (modeling_ext == TRUE){
+ #   tidy_for_model(cannon_data)
+ # }
 
 ```
+
+
+```{r, include=FALSE}
+# sys.source("~/github_repos/PUBS_Data_Verification//helper_scripts/in_development/modelingformat_functions_PUBS.R", envir = knitr::knit_global())
+# \\
+```
+
 
 
 ## Issues Warranting Discussion {.tabset}

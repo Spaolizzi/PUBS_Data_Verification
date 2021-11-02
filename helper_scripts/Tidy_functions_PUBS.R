@@ -4,7 +4,7 @@ tidy_cannon <- function(data) {
     select(!c(build, experimentName, list.Condition.currentvalue)) %>% 
     group_by(subject, time) %>% ## be by subject
     dplyr::filter(trialcode == "cannon_outcome") %>% filter(!practiceblock < 6) %>% ##only data from trials
-    mutate(picture.shield.currentitem, shieldsize = as.numeric(parse_number(picture.shield.currentitem))) %>% ## make shield size numeric
+    mutate(picture.shield.stimulusonset, shieldsize = as.numeric(parse_number(picture.shield.stimulusonset))) %>% ## make shield size numeric
     mutate_if(is.integer, as.numeric) %>% #convert all integers to numeric
     mutate(cond = as.factor(cond))
   
@@ -237,10 +237,10 @@ check_irreg <- function(data){
       }
     } else if(is.na(data$hitmiss[r])){
       data$Irreg[r] <- NA
-    } else if(is.na(data$shield_size[r])) {
+    } else if(is.na(data$shieldsize[r])) {
       data$Irreg[r] <- NA
     } else {
-        if (data$predErr[r] <= (data$shield_size[r]/2) && data$hitmiss[r] == 0){
+        if (data$predErr[r] <= (data$shieldsize[r]/2) && data$hitmiss[r] == 0){
         data$Irreg[r] <- "CHECK_MISS"
       } else if (data$predErr[r] >= 30 & data$hitmiss[r] == 1){
         data$Irreg[r] <- "CHECK_HIT"
