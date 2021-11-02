@@ -1,4 +1,5 @@
 
+
 tidy_cannon <- function(data) {
   data <- data %>% 
     select(!c(build, experimentName, list.Condition.currentvalue)) %>% 

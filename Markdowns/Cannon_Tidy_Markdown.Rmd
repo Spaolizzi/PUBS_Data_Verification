@@ -65,7 +65,7 @@ pilot <- FALSE #if pilot data, will read August Pilot Data
 #load data
 
 if (pilot == FALSE){
-  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C_Samp.csv", fill = TRUE) %>% 
+  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C.csv", fill = TRUE) %>% 
   dplyr::filter(subject != 1) %>% 
   dplyr::filter(subject != "subject") 
 } else{
@@ -91,12 +91,13 @@ iq_names <- colnames(cannon_data_raw)
 ### 1. Clean Pilot Data...
 It is important to get rid of excess trials and only retain information that will be important in analysis.
 ```{r clean data, include = FALSE}
+cannon_data_raw<- data.frame(lapply(cannon_data_raw, function(x) gsub(",", ".", x, fixed = TRUE)))
 cannon_data <- tidy_cannon(cannon_data_raw) ## transforms raw data into workable dataframe
 check_tidy(cannon_data) # found double subject
 
-#couble-check we aren't losing subject to the cleaning proccess
-Raw <- unique(cannon_data$subject)
-Chopped <- as.numeric(unique(cannon_data_raw$subject))
+#double-check we aren't losing subject to the cleaning proccess
+Chopped <- unique(cannon_data$subject)
+Raw <- as.numeric(unique(cannon_data_raw$subject))
 Step1 <- cbind(Raw,Chopped)
 ```
 
@@ -106,7 +107,8 @@ Step1 <- cbind(Raw,Chopped)
 if (length(Raw) == length(Chopped)){
   print("Data Successfully Chopped")
 } else {
-  print("Data Not Chopped")
+  print("Double-Check Prep")
+  #Batch1: 815602 did not complete task -fine to be off in length
 }
 ```
 
@@ -254,7 +256,7 @@ get_legendc <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom
  changepointDM <- ggplot(c, aes(x=trialnum, y=distMean, color = catch_miss)) + geom_point() + 
    geom_vline(aes(xintercept = changepoint, color = "Changepoint")) + scale_color_manual(values = (wes_palette("Cavalcanti1")[c(4,5,2)])) + ggtitle ("Distance from Mean") + xlab("Trial Number") + ylab("Size Of Prediction Error") + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())  + theme(legend.position = "none") + facet_wrap(~blocknum, ncol = 1)
  
-i <- cowplot::plot_grid(changepointPE, changepointPE, legendc, ncol = 3, rel_widths = c(2.5,2.1,1))})
+i <- cowplot::plot_grid(changepointPE, changepointDM, legendc, ncol = 3, rel_widths = c(2.5,2.1,1))})
 }
 ##print based on the block that came first (use cBal)
 # 
