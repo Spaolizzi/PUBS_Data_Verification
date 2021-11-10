@@ -23,7 +23,7 @@ source("helper_scripts/Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/data/PUBS_Batch1_R_Samp.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/data/PUBS_Batch1_R.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
@@ -36,8 +36,17 @@ summary <- "by_phase" #by_block, by_phase, by_block_phase
 *Clean and transform Data. Perform basic checks....*
 ```{r}
 trim_cols <- TRUE
+reversal_data <- data.frame(lapply(reversal_data, function(x) gsub(",", ".", x, fixed = TRUE))) 
+
 reversal <- tidy_reversal(reversal_data)
 check_tidy(reversal)
+
+cols.num <- c("totalcorrect", "consecutivecorrect", "reversalnumber", "totalearnings",
+              "trial_number", "total_trialnum", "numbercorrectfeedback", "numbercorrectfeedback_block",
+              "totalcorrect", "consecutivecorrect", "reversalnumber", "totalearnings", "centsearned", "rt")
+
+reversal[cols.num] <- sapply(reversal[cols.num], as.numeric)
+sapply(reversal)
 
 # bad <- c()
 # for(i in 1:nrow(check_tidy)){
@@ -122,6 +131,8 @@ sink("/dev/null")
 tab
 sink(); 
 ```
+
+
 ```{r}
 ##N.B. For actual analysis, hang here and create drop_irregular function that prints summaries and has options to get rid of:
 ## bad subjects (those with < avg accuracy overall)
@@ -132,7 +143,6 @@ sink();
 
 **Figure 1**. This chunk prints an overall view of reaction time. 
 ```{r}
-
 rts <- list()
 for (i in subjects) {
   s <- reversal %>% dplyr::filter(subject == i)
@@ -141,7 +151,6 @@ rts[[i]] <- rt_hist
 }
 
 rts[[length(rts) + 1]] <- rt_hist <- ggplot(reversal, aes(rt), stat = "bin") + geom_histogram() + ggtitle("Overall RTs")
-rts[]
 summary(reversal$rt)
 ```
 
@@ -212,7 +221,7 @@ summary(a_1)
 a_1 <- aov(rt ~ block_number, data = reversal)
 summary(a_1)
 
-rt_trialnum <- lm(rt ~ total_trialnum + task_phase + block_number, data = reversal)
+rt_trialnum <- lm(rt ~ task_phase + as.numeric(block_number), data = reversal)
 summary(rt_trialnum)
 
 emmeans(rt_trialnum, "task_phase")

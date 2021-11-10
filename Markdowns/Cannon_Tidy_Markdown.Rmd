@@ -57,6 +57,7 @@ source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS
 print_plots <- "cp" # could be "oddball" 
 get_model_params <- TRUE
 pilot <- FALSE #if pilot data, will read August Pilot Data
+modeling_ext <- TRUE # tidy for modeling?
 
 ```
 
@@ -318,9 +319,9 @@ emmeans(rt_trialnum, "cond")
 #maybe give this an option? 
 
 save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc.RData")
- # if (modeling_ext == TRUE){
- #   tidy_for_model(cannon_data)
- # }
+ if (modeling_ext == TRUE){
+   sys.source("~/github_repos/PUBS_Data_Verification//helper_scripts/modelingformat_functions_PUBS.R", envir = knitr::knit_global())
+ }
 
 ```
 

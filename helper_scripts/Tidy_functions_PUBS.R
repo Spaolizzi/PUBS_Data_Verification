@@ -111,6 +111,8 @@ tidy_reversal <- function(data) {
     data <- data[ , correctstim_name:= shift(stimulusitem1, 1)]
     data <- data %>% 
       mutate_if(is.integer, as.numeric) %>%
+      mutate(total_trialnum = as.numeric(total_trialnum)
+             ) %>%
       filter(!correctstim_name== "+")
   }
   return(data)

@@ -1,13 +1,14 @@
 # Load Data and Packages --------------------------------------------------
 library(tidyverse)       
-setwd("~/github_repos/PUBS_Data_Verification/sample_data/")
-qualtrics <- read_csv("PUBS_Batch1_Q_Samp.csv") #download newest qualtrics data and load
-cloudresearch <- read_csv("PUBS_Batch1_CR_Samp.csv") #download newest cloudresearch data and load
+setwd("~/github_repos/PUBS_Data_Verification/Payment/")
+cloudresearch <- read_csv("PUBS_Batch1_CR.csv") #download newest cloudresearch data and load
 load("~/github_repos/PUBS_Data_Verification/Payment/Cannon.Rdata")  #run cannon markdown and load
 load("~/github_repos/PUBS_Data_Verification/Payment/Reversal.Rdata") #run reversal markdown and load payment data
+qualtrics <- read_csv("~/github_repos/PUBS_Data_Verification/Qualtrics_Data/PUBS_Batch1_QR.csv")
 
 # Step 1: Combine inquisit earnings ---------------------------------
-earnings <- left_join(cannon_earnings, reversal_earnings, by = 'subject') %>%
+earnings <- left_join(cannon_earnings, reversal_earnings, by = 'subject') %>% 
+  mutate(centsearned_r = as.numeric(centsearned_r)) %>%
   mutate(total = (centsearned_r + centsearned_c)/100) #calculate inquisit earnings across both tasks
 
 # Step 2: Filter only complete qualtrics surverys -------------------------
