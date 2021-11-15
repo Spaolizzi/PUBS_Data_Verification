@@ -1,15 +1,20 @@
 # Load Data and Packages --------------------------------------------------
-library(tidyverse)       
+library(tidyverse)    
+library(qualtRics)
+surveys <- all_surveys()
+qualtrics <- fetch_survey(surveyID = surveys$id[18],
+                          convert = FALSE, label = FALSE, 
+                          breakout_sets = FALSE,
+                          verbose = TRUE, force_request = TRUE)
 setwd("~/github_repos/PUBS_Data_Verification/Payment/")
-cloudresearch <- read_csv("PUBS_Batch1_CR.csv") #download newest cloudresearch data and load
+cloudresearch <- read_csv("PUBS_Batch2_CR.csv") #download newest cloudresearch data and load
 load("~/github_repos/PUBS_Data_Verification/Payment/Cannon.Rdata")  #run cannon markdown and load
 load("~/github_repos/PUBS_Data_Verification/Payment/Reversal.Rdata") #run reversal markdown and load payment data
-qualtrics <- read_csv("~/github_repos/PUBS_Data_Verification/Qualtrics_Data/PUBS_Batch1_QR.csv")
+
 
 # Step 1: Combine inquisit earnings ---------------------------------
-earnings <- left_join(cannon_earnings, reversal_earnings, by = 'subject') %>% 
-  mutate(centsearned_r = as.numeric(centsearned_r)) %>%
-  mutate(total = (centsearned_r + centsearned_c)/100) #calculate inquisit earnings across both tasks
+earnings <- full_join(reversal_earnings, cannon_earnings, by = 'subject') %>% 
+  mutate(total = rowSums(.[grep("centsearned", names(.))], na.rm = TRUE)) #calculate inquisit earnings across both tasks
 
 # Step 2: Filter only complete qualtrics surverys -------------------------
 qualtrics <- qualtrics %>%
@@ -25,7 +30,6 @@ qualtrics_randomdraw <- qualtrics %>% dplyr::select(., contains("_select")) %>% 
 
 # Select/Create Q columns relevant for payment -----------------------------------
 qualtrics <- qualtrics %>% arrange(qualtrics,Duration_mins) %>% select(Duration_mins, RandomID, workerId, Progress)
-View(payment)
 qualtrics$payout_colnum <- NA
 qualtrics$payout_colname <- NA
 qualtrics$payout_resp <- NA
@@ -40,7 +44,6 @@ qualtrics$payout_resp <- unlist(qualtrics_randomdraw[i, qualtrics$payout_colnum]
 
 # Combine all bonus payments into final CSV -------------------------------
 for_payment <- qualtrics %>% select(RandomID, workerId, payout_colnum,payout_colname, payout_resp, Duration_mins)
-
 for_payment <- for_payment %>% 
   separate(payout_colname, into = c("Likelihood", "Amount"), sep = "_", extra = "drop") %>% 
   mutate(Answer = ifelse(grepl("L", Amount), "F", "J")) %>% 
@@ -56,7 +59,7 @@ for_payment <- for_payment %>%
 # Format Bonus Payments for export to CloudResearch -----------------------
   
 # First, pull all cloud research IDs and approval status
-cloudresearch <- cloudresearch %>% rename(AmazonIdentifier = workerId) 
+#cloudresearch <- cloudresearch
   # next, Join payment with earnings from cannon and reversal tasks 
     # NOTE: If something fails here, you probably haven't gotten the newest data from IQ yet!!
 payment <- left_join(for_payment, earnings, by = "subject")
@@ -64,14 +67,18 @@ payment <- left_join(for_payment, earnings, by = "subject")
 
  #Tweaking to generate CSV for upload to CloudResearch
 cloudresearch_final <- merge(cloudresearch, payment,  by = "AmazonIdentifier", all = TRUE) %>%
- mutate(`Bonus Amount` = ifelse(StartTime >= "8/30/2021 10:41:31 PM", 1.41, total)) # originally run with mean(payment$total, na.rm = TRUE) in place of 1.41
+ mutate(`Bonus Amount` = ifelse(StartTime >= "8/30/2021 10:41:31 PM", 141, total)) %>% mutate(`Bonus Amount` = `Bonus Amount`/100) # originally run with mean(payment$total, na.rm = TRUE) in place of 1.41
 
 #final CSV: Return only workers whose HITs have been Approved (must check over inquisit responses before approval!)
   #N.B, probably worth adding a "yes" column to earnings CSV
-approved_pilot_1 <- cloudresearch %>% 
+approved_pilot_1 <- cloudresearch_final %>% 
     dplyr::select(AmazonIdentifier, `Bonus Amount`, ApprovalStatus) %>% 
     filter(ApprovalStatus == "Approved")
 
+pending_pilot_1 <- cloudresearch_final %>% 
+  dplyr::select(AmazonIdentifier, `Bonus Amount`, ApprovalStatus) %>% 
+  filter(ApprovalStatus == "Pending") %>% na.omit()
 
-write_csv(cloudresearch_final, "~/github_repos/PUBS_Data_Verification/sample_data/PUBS_Batch1_CR_Samp.csv") #keep this consistent with 
-write_csv(approved_pilot_1, "~/github_repos/PUBS_Data_Verification/Payment/Payment_10.26.21.csv")
+
+write_csv(cloudresearch_final, "~/github_repos/PUBS_Data_Verification/sample_data/PUBS_Batch2_CR.csv") #keep this consistent with 
+write_csv(approved_pilot_1, "~/github_repos/PUBS_Data_Verification/Payment/Payment_11.15.21.csv")

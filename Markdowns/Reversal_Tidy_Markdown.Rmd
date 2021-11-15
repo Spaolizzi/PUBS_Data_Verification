@@ -23,7 +23,7 @@ source("helper_scripts/Tidy_functions_PUBS.R")
 #reversal_data_8.16 <- data.table::fread("~/github_repos/ReversalTask/Reversal_pilot_mTurk.csv", fill = TRUE)
 #load data
 #load("Reversal_Task_Cleaned.Rdata")
-reversal_data <- data.table::fread("~/github_repos/ReversalTask/data/PUBS_Batch1_R.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
+reversal_data <- data.table::fread("~/github_repos/ReversalTask/data/PUBS_Batch2_R.csv", fill = TRUE) %>% group_by(subject, time) %>% filter(!subject %in% c(324215, 1))
 
 reversal_data <- reversal_data %>% mutate(subject = ifelse(time == "18:47:13", 456, subject))
 subjects <- unique(reversal_data$subject)
@@ -41,12 +41,12 @@ reversal_data <- data.frame(lapply(reversal_data, function(x) gsub(",", ".", x, 
 reversal <- tidy_reversal(reversal_data)
 check_tidy(reversal)
 
-cols.num <- c("totalcorrect", "consecutivecorrect", "reversalnumber", "totalearnings",
+colsToConvert <- c("totalcorrect", "consecutivecorrect", "reversalnumber", "totalearnings",
               "trial_number", "total_trialnum", "numbercorrectfeedback", "numbercorrectfeedback_block",
-              "totalcorrect", "consecutivecorrect", "reversalnumber", "totalearnings", "centsearned", "rt")
+              "centsearned", "trial.choice.latency")
+reversal <- reversal[, (colsToConvert) := lapply(.SD, as.numeric), .SDcols = colsToConvert]
+sapply(reversal, class)
 
-reversal[cols.num] <- sapply(reversal[cols.num], as.numeric)
-sapply(reversal)
 
 # bad <- c()
 # for(i in 1:nrow(check_tidy)){
@@ -124,7 +124,7 @@ colormatrix <- ifelse(obj$above_threshold == "Below", wes_palette("Cavalcanti1")
 
 tab <- obj %>% flextable() %>% flextable::bg(j = 1:ncol(obj), bg=colormatrix)
 
-reversal_earnings <- reversal %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_r = cents_earned)
+reversal_earnings <- reversal %>% group_by(subject) %>% summarize(cents_earned = as.numeric(max(totalearnings))) %>% dplyr::rename(centsearned_r = cents_earned) %>% mutate(subject = as.numeric(subject))
 save(reversal_earnings, file = "~/github_repos/PUBS_Data_Verification/Payment/Reversal.Rdata")
 
 sink("/dev/null")
@@ -232,6 +232,9 @@ emmeans(rt_trialnum, "block_number")
 ```
 
 
+```{r}
+save(reversal, file = "~/github_repos/ReversalTask/data/reversal_proc.RData")
+```
 
 
 ## Issues Warranting Discussion {.tabset}

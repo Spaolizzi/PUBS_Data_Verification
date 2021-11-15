@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans, lme4)
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, emmeans, lme4, qualtRics)
 source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS.R")
 #source("~/github_repos/PUBS_Data_Verification/helper_scripts/in_development/modelingformat_functions_PUBS.R")
 

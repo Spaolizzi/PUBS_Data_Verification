@@ -56,7 +56,7 @@ source("~/github_repos/PUBS_Data_Verification/helper_scripts/Tidy_functions_PUBS
 ```{r}
 print_plots <- "cp" # could be "oddball" 
 get_model_params <- TRUE
-pilot <- FALSE #if pilot data, will read August Pilot Data
+pilot <- TRUE #if pilot data, will read August Pilot Data
 modeling_ext <- TRUE # tidy for modeling?
 
 ```
@@ -66,13 +66,19 @@ modeling_ext <- TRUE # tidy for modeling?
 #load data
 
 if (pilot == FALSE){
-  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C.csv", fill = TRUE) %>% 
+  cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch2_C.csv", fill = TRUE) %>% 
   dplyr::filter(subject != 1) %>% 
   dplyr::filter(subject != "subject") 
 } else{
   cannon_data_raw <- data.table::fread("~/github_repos/Cannon_Task_Inquisit/Data/PUBS_Batch1_C_Samp.csv", fill = TRUE) %>% 
   dplyr::filter(subject == 1) %>% 
   dplyr::filter(subject != "subject") 
+  #If it's a pilot without numbers, do this
+  if (length(unique(cannon_data_raw$subject == 1))){
+  cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
+  unique(cannon_data_raw$subject)
+}
+
 }
 
 #FILTER OUT TIMES BEFORE OFFICIAL DATA COLLECTION
@@ -80,11 +86,6 @@ load("cannon_processing.Rdata")
 #load("Cannonball_Pilot_Cleaned_Data.Rdata")
 iq_names <- colnames(cannon_data_raw)
 
-# #If it's a pilot without numbers, do this
-# if (length(unique(cannon_data_raw$subject == 1))){
-#   cannon_data_raw <- cannon_data_raw %>% group_by(time) %>% mutate(subject= cur_group_id())
-#   unique(cannon_data_raw$subject)
-# }
 
 
 ```
@@ -100,16 +101,18 @@ check_tidy(cannon_data) # found double subject
 Chopped <- unique(cannon_data$subject)
 Raw <- as.numeric(unique(cannon_data_raw$subject))
 Step1 <- cbind(Raw,Chopped)
+counts <- as.data.frame(table(cannon_data$subject))
+check_counts <- counts %>% filter(Freq >= 490) #
+assumed_bailed <- counts %>% filter(Freq <= 400) # save these for later!
 ```
 
 
 ```{r}
-
 if (length(Raw) == length(Chopped)){
   print("Data Successfully Chopped")
 } else {
   print("Double-Check Prep")
-  #Batch1: 815602 did not complete task -fine to be off in length
+  #Batch1: 815602 did not complete task -fine to be off in length by 1
 }
 ```
 
@@ -129,15 +132,9 @@ The variables created by the set_vars vector are:
 set_vars <- c("predErr", "distMean", "catch_miss", "changepoint", "perf", "total_trialnum" ) ##name variables needed for analysis, add as they become apparent 
 trim_cols <- TRUE
 cannon_data <- create_vars(cannon_data, set_vars) ## Intialize rows to calculate
-cannon_data <- cannon_data %>% ungroup() %>% group_by(subject) %>% mutate(cBal = ifelse(cond[1] == "CHANGEPOINT", 2, 1))
+cannon_data <- cannon_data %>% ungroup() %>% group_by(subject) %>% mutate(cBal = ifelse(cond[1] == "CHANGEPOINT", 2, 1)) 
 
  if (trim_cols == TRUE){
-   if (cannon_data$percentTrialsStay == .86){
-      drop <- c("percentTrialsStay","blockcode","trialcode",
-                "block.InstructionBlock.timestamp","trial.begin_block.timestamp",
-              "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp","trial.showPE.timestamp"
-              ,"trial.cannon_outcome.timestamp","picture.shield.currentitem")
-   }
     drop <- c("blockcode","trialcode",
               "block.InstructionBlock.timestamp","trial.begin_block.timestamp",
               "trial.mainloop.timestamp","trial.placeshield_mouse.timestamp"
@@ -196,13 +193,27 @@ obj <- cannon_data %>% group_by(subject, cond, blocknum, totalearnings) %>%
 #save(obj, cannon_data, file = "Cannonball_Pilot_Example_Perfect_Data.Rdata")
 
 colormatrix <- ifelse(obj$percent_noresp >= .2 || obj$obscount != 60, wes_palette("Cavalcanti1")[c(1)], "white") ##potentially save these as bad_blocks vector
-bad_blocks <- obj %>% dplyr::filter( percent_noresp >= .2)
+bad_blocks <- obj %>% dplyr::filter( percent_noresp >= .2 || obscount != 60)
 
 tab <- obj %>% flextable() %>% flextable::bg(j = 1:ncol(obj), bg=colormatrix)
 
+block_count <- table(obj$subject)
+
 cannon_earnings <- cannon_data %>% group_by(subject) %>% summarize(cents_earned = max(totalearnings)) %>% dplyr::rename(centsearned_c = cents_earned)
-save(cannon_earnings, file = "~/github_repos/PUBS_Data_Verification/Payment/Cannon.Rdata")
+if(pilot == FALSE) {
+  save(cannon_earnings, file = "~/github_repos/PUBS_Data_Verification/Payment/Cannon.Rdata")
+}
+
 tab
+
+
+```
+
+
+Time to drop the problematic people!
+```{r}
+exclude_forpayment <- cannon_data %>% filter(subject %in% as.numeric(as.character(assumed_bailed$Var1))) # check these people on the payment side
+cannon_data <- cannon_data %>% filter(!subject %in% as.numeric(as.character(assumed_bailed$Var1))) %>% filter(!subject %in% as.numeric(as.character(check_counts$Var1)))
 ```
 
 
@@ -307,7 +318,7 @@ plots <- lapply(1:length(cowplotodd), function(w) {knitr::knit_expand(text = tem
 a_1 <- aov(trial.placeshield_mouse.latency ~ cond, data = cannon_data)
 summary(a_1)
 
-rt_trialnum <- lm(trial.placeshield_mouse.latency ~ trialnum + cond  + blocknum + cBal, data = cannon_data)
+rt_trialnum <- lm(trial.placeshield_mouse.latency ~ trialnum + cond + cBal, data = cannon_data)
 summary(rt_trialnum)
 
 emmeans(rt_trialnum, "cond")
@@ -316,12 +327,14 @@ emmeans(rt_trialnum, "cond")
 
 
 ```{r, message=FALSE}
-#maybe give this an option? 
+if (pilot == TRUE){
+  save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc_pilot.RData")
+}
 
-save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc.RData")
- if (modeling_ext == TRUE){
-   sys.source("~/github_repos/PUBS_Data_Verification//helper_scripts/modelingformat_functions_PUBS.R", envir = knitr::knit_global())
- }
+if (pilot == FALSE){
+  save(cannon_data, file = "~/github_repos/Cannon_Task_Inquisit/Data/cannon_proc.RData")
+}
+
 
 ```
 

@@ -255,6 +255,18 @@ check_irreg <- function(data){
 
 
 
+relabel_qnames <- function(data, string){
+  map <- extract_colmap(data)
+  cols <- c("RandomID")
+  labels <- c("RandomID")
+  for (i in 1:nrow(map)){
+    if (grepl(paste0(string), as.character(map[i,2]))){
+      cols <- append(cols, as.character(map[i,1]))
+      labels <- append(labels, as.character(map[i,2]))
+    }
+  }
+}
+
 
 # get_payment <- function(){
 #   for (i in subject){

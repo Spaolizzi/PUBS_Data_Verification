@@ -10,14 +10,13 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 options(knitr.duplicate.label = "allow")
 ##Load Packages and source scripts
-pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, qualtRics)
-setwd("~/github_repos/PUBS_Data_Verification/") ##Set this to be whereever you're storing the data
-
+pacman::p_load(tidyverse, readr, janitor, ggplot2,wesanderson, cowplot, flextable, plotly, qualtRics, dependlab)
+setwd("~/github_repos/PUBS_Data_Verification/") ##Set this to be wherever you're storing the data
 surveys <- all_surveys()
 qualtrics <- fetch_survey(surveyID = surveys$id[18],
-                         convert = FALSE, label = FALSE, verbose = FALSE, force_request = TRUE)
-# 
-# qualtrics <- read_survey("Qualtrics_Data/PUBS_Batch1_QR.csv")
+                         convert = FALSE, label = FALSE, 
+                         breakout_sets = FALSE,
+                         verbose = TRUE, force_request = TRUE)
 ```
 
 ```{r cars}
@@ -30,18 +29,41 @@ options <- "by_questionnaire"
 ```{r}
 columns <- colnames(qualtrics)
 global_vars <- (c("RandomID", "Eth", "gen", "age")) #copy names of all demographic variables in here.
+
 ```
 
 ```{r pressure, echo=FALSE}
 if (options == "by_questionnaire"){
-  PID <- qualtrics %>% dplyr::select(RandomID, contains("PID")); PID <- as.data.frame(lapply(PID, as.numeric))
-  PSWQ <- qualtrics %>% dplyr::select(RandomID, SC2, contains("PSWQ"));  PSWQ <- as.data.frame(lapply(PSWQ, as.numeric))
-  PAI <- qualtrics %>% dplyr::select(RandomID, SC1, contains("PAI"));  PAI <- as.data.frame(lapply(PAI, as.numeric))
+  #PID
+  map <- extract_colmap(qualtrics)
+  cols <- c("RandomID")
+  labels <- c("RandomID")
+  for (i in 1:nrow(map)){
+    if (grepl("PID_", as.character(map[i,2]))){
+      cols <- append(cols, as.character(map[i,1]))
+      labels <- append(labels, as.character(map[i,2]))
+    }
+  }
+  PID <- qualtrics %>% dplyr::select(RandomID, all_of(cols))
+  labels[2] <- "PID_2"
+  colnames(PID) <- labels
+  PID_Scored <- score_pid5(PID, "PID_", max_impute = .2, min_value = NA,
+  max_value = NA)
+  PID <- as.data.frame(lapply(PID, as.numeric))
+  
+#relabel score columns so they get selected
+  for (i in 1:nrow(map)){
+    if (grepl("SC", (map[i,1]))){
+      names(qualtrics)[i] <- as.character(map[i,2])
+    }
+  }
+  PSWQ <- qualtrics %>% dplyr::select(RandomID, contains("PSWQ"));  PSWQ <- as.data.frame(lapply(PSWQ, as.numeric))
+  PAI <- qualtrics %>% dplyr::select(RandomID, contains("PAI"));  PAI <- as.data.frame(lapply(PAI, as.numeric))
   BFAS <- qualtrics %>% dplyr::select(RandomID, contains("BFAS"));  BFAS <- as.data.frame(lapply(BFAS, as.numeric))
   STAI <- qualtrics %>% dplyr::select(RandomID, contains("STAI"));  STAI <- as.data.frame(lapply(STAI, as.numeric))
   global_variables <- qualtrics[, (names(qualtrics) %in% global_vars)]
-  measures_list <- list(PID, PSWQ, PAI, BFAS, STAI, global_variables)
-  expected_vals <- c(109, 16, 24, 20, 40, 3) #PLEASE UPDATE THIS VECTOR WITH YOUR EXPECTED COUNT
+  measures_list <- list(PID_Scored, PSWQ, PAI, BFAS, STAI, global_variables)
+  expected_vals <- c(101, 18, 30, 24, 44, 4) #PLEASE UPDATE THIS VECTOR WITH YOUR EXPECTED COUNT
   names(measures_list) <- c("PID", "PSWQ", "PAI", "BFAS", "STAI", "GLOBAL")
   measures_list
 }
@@ -65,106 +87,12 @@ if (options == "by_questionnaire"){
 ```
 
 
-
-
+#How many PTs are meeting cutoffs, also how to seperate into subscales
 ```{r}
-# PAI <- PAI %>%
-#   mutate(across(
-#         starts_with("PAI") & ends_with(c("7","12","14","19","20","24")),
-#         ~recode(., `1` ="3",
-#                 `2` = "2" ,
-#                 `3` = "1",
-#                 `4` = "0")
-#         )) %>%
-#   mutate(across(
-#         starts_with("PAI") & !ends_with(c("7","12","14","19","20","24")),
-#         ~recode(., `1` = "0",
-#                 `2` = "1" ,
-#                 `3`= "2",
-#                 `4` = "3")))
-# 
-# 
-# PSWQ <- PSWQ %>%
-#   mutate(across(
-#         starts_with("PSWQ") & !ends_with(c("2", "4", "5", "6", "7", "9", "12", "13", "14", "15", "16")),
-#         ~recode(., `1` = "5",
-#                 `2` = "4" ,
-#                 `3` = "3",
-#                 `4` = "2",
-#                 `5` = "1")
-#         )) %>%
-#   mutate(across(
-#         starts_with("PAI") & ends_with(c("2", "4", "5", "6", "7", "9", "12", "13", "14", "15", "16")),
-#          ~recode(., `1` = "1",
-#                 `2` = "2" ,
-#                 `3` = "3",
-#                 `4` = "4",
-#                 `5` = "5")))
-# 
-# # PAI <- PAI %>%
-#   mutate(across(
-#         starts_with("PAI") & ends_with(c("7","12","14","19","20","24")),
-#         ~recode(., "False, not at all true" = "3",
-#                                 "Slightly True" = "2" ,
-#                                 "Mainly True" = "1",
-#                                 "Very True" = "0",
-#                 .default = .)
-#         )) %>%
-#   mutate(across(
-#         starts_with("PAI") & !ends_with(c("7","12","14","19","20","24")),
-#         ~recode(., "False, not at all true" = "0",
-#                                 "Slightly True" = "1" ,
-#                                 "Mainly True" = "2",
-#                                 "Very True" = "3",
-#                 .default = .)
-#         ))
-# PAI <- as.data.frame(lapply(PAI, as.numeric))
-# PSWQ <- as.data.frame(lapply(PSWQ, as.numeric))
-```
+PAI <- as.data.frame(lapply(PAI, as.numeric))
+PSWQ <- as.data.frame(lapply(PSWQ, as.numeric))
 
-
-#How many PTs are meeting cutoffs, aslo how to seperate into subscales
-```{r}
-
-#PTs over PAI Cutoff
-#seperate into subscales
-PAI$PAI_Score <- NULL
-for (i in 1:nrow(PAI)){
-  PAI$PAI_Tot[i] <- sum(PAI[i, 2:25], na.rm = TRUE)
-}
-
-
-#need to sort out a few questions, this should be about 100 qs
-#need to sort into subscales
-PID$PID_Tot <- NULL
-for (i in 1:nrow(PAI)){
-  PID$PID_Tot[i] <- sum(PID[i, 2:110], na.rm = TRUE)
-}
-
-
-#seperate into subscales
-STAI$STAI_Tot <- NULL
-for (i in 1:nrow(PAI)){
-  STAI$STAI_Tot[i] <- sum(STAI[i, 2:41], na.rm = TRUE)
-}
-
-
-#seperate BFAS into subscales
-BFAS$BFAS_Tot <- NULL
-for (i in 1:nrow(PAI)){
-  BFAS$BFAS_Tot[i] <- sum(BFAS[i, 2:21], na.rm = TRUE)
-}
-
-
-#PTs over PAI Cutoff
-PSWQ$PSWQ_Tot <- NULL
-for (i in 1:nrow(PAI)){
-  PSWQ$PSWQ_Tot[i] <- sum(PSWQ[i, 2:17], na.rm = TRUE)
-}
-
-
-
-hist(PAI$PAI_); summary(PAI$PAI_Tot)
+hist(PAI$PAI_Tot); summary(PAI$PAI_Tot)
 hist(PSWQ$PSWQ_Tot); summary(PSWQ$PSWQ_Tot)
 
 corr <- left_join(PAI, PSWQ, by = "RandomID")
@@ -185,9 +113,9 @@ plot(corr$PAI_Tot, corr$PSWQ_Tot)
 
 #
 ```{r}
-  measures_df <- cbind(global_variables, PID, PSWQ, PAI, BFAS, STAI)
+  measures_df <- cbind(global_variables, PID_Scored, PSWQ, PAI, BFAS, STAI)
   measures_df <- measures_df[!duplicated(as.list(measures_df))]
-  save(measures_df, file = "~/github_repos/PUBS_Data_Verification/Qualtrics_Data/PUBS_Batch1_QR_Proc.R" )
+  save(measures_df, file = "~/github_repos/PUBS_Data_Verification/Qualtrics_Data/PUBS_Batch1_QR_Proc.Rdata")
 ```
 
 
